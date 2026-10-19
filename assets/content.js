@@ -1,13 +1,20 @@
 // Treści aplikacji: pogody, cytaty, ćwiczenia. Logika jest w app.js.
 // Cytaty to przekład własny (swobodny) z tekstów w domenie publicznej.
 
+// sky: [góra, środek, horyzont], sea: kolor wody, amp: wysokość fal
 const WEATHERS = [
-  { id: "pogodnie", icon: "☀️", label: "Pogodnie", hint: "spokój, jest przestrzeń" },
-  { id: "mgla",     icon: "🌫️", label: "Mgła",     hint: "odkładanie, apatia" },
-  { id: "wichura",  icon: "🌪️", label: "Wichura",  hint: "niepokój, gonitwa myśli" },
-  { id: "burza",    icon: "⛈️", label: "Burza",    hint: "złość, rozdrażnienie" },
-  { id: "deszcz",   icon: "🌧️", label: "Deszcz",   hint: "smutek, przygnębienie" },
+  { id: "pogodnie", label: "Pogodnie", hint: "spokój, jest przestrzeń",
+    sky: ["#233668", "#6c5a8e", "#e0a07a"], sea: "#22325c", amp: 0.45 },
+  { id: "mgla",     label: "Mgła",     hint: "odkładanie, apatia",
+    sky: ["#373e4c", "#646c7c", "#a4a9b2"], sea: "#454d5c", amp: 0.35 },
+  { id: "wichura",  label: "Wichura",  hint: "niepokój, gonitwa myśli",
+    sky: ["#171b3a", "#38346b", "#7468a3"], sea: "#1c1e44", amp: 1.15 },
+  { id: "burza",    label: "Burza",    hint: "złość, rozdrażnienie",
+    sky: ["#090c18", "#191f35", "#39405d"], sea: "#0b1221", amp: 1.6 },
+  { id: "deszcz",   label: "Deszcz",   hint: "smutek, przygnębienie",
+    sky: ["#16232f", "#2b4357", "#5a778e"], sea: "#132535", amp: 0.8 },
 ];
+const DEFAULT_SKY = { id: "default", sky: ["#111930", "#29345c", "#566592"], sea: "#0d1830", amp: 0.7 };
 
 // Które ćwiczenia polecać przy jakiej pogodzie (kolejność = priorytet).
 const RECOMMEND = {
@@ -122,7 +129,7 @@ const bullet = (arr) => arr.map((x) => "• " + x).join("\n");
 // prompt/hint mogą być funkcją (answers) => string; showIf: (answers) => bool.
 const EXERCISES = {
   kontrola: {
-    icon: "🎯", title: "Dychotomia kontroli", mins: 3,
+    title: "Dychotomia kontroli", mins: 3,
     desc: "Rozłóż to, co Cię męczy, na Twoje i nie Twoje.",
     steps: [
       { id: "before", type: "scale", label: "Napięcie przed", prompt: "Jak silny jest teraz niepokój?" },
@@ -142,7 +149,7 @@ const EXERCISES = {
   },
 
   zapis: {
-    icon: "📝", title: "Zapis myśli", mins: 5,
+    title: "Zapis myśli", mins: 5,
     desc: "Klasyka CBT: złap myśl, sprawdź ją jak sędzia, znajdź lepszą.",
     steps: [
       { id: "before", type: "scale", label: "Emocja przed", prompt: "Jak silna jest emocja?" },
@@ -159,7 +166,7 @@ const EXERCISES = {
   },
 
   pauza: {
-    icon: "⏸️", title: "Pauza Seneki", mins: 3,
+    title: "Pauza Seneki", mins: 3,
     desc: "Na złość: najpierw zwłoka, potem wybór odpowiedzi.",
     steps: [
       { id: "before", type: "scale", label: "Złość przed", prompt: "Jak silna jest złość?" },
@@ -175,7 +182,7 @@ const EXERCISES = {
   },
 
   krok: {
-    icon: "👣", title: "Najmniejszy krok", mins: 2,
+    title: "Najmniejszy krok", mins: 2,
     desc: "Na mgłę i odkładanie: zrób wersję tak małą, że aż śmieszną.",
     steps: [
       { id: "before", type: "scale", label: "Opór przed", prompt: "Jak duży jest opór?" },
@@ -204,7 +211,7 @@ const EXERCISES = {
   },
 
   dobre: {
-    icon: "🕯️", title: "Trzy dobre rzeczy", mins: 3,
+    title: "Trzy dobre rzeczy", mins: 3,
     desc: "Na deszcz: przekieruj uwagę na to, co mimo wszystko jest dobre.",
     steps: [
       { id: "before", type: "scale", label: "Ciężar przed", prompt: "Jak ciężko jest teraz?" },
@@ -217,7 +224,7 @@ const EXERCISES = {
   },
 
   zgory: {
-    icon: "🌍", title: "Spojrzenie z góry", mins: 2,
+    title: "Spojrzenie z góry", mins: 2,
     desc: "Oddal się od problemu, aż nabierze właściwych rozmiarów.",
     steps: [
       { id: "before", type: "scale", label: "Napięcie przed", prompt: "Jak duża wydaje się teraz ta sprawa?" },
@@ -238,7 +245,7 @@ const EXERCISES = {
 // Rytuały dnia: ten sam silnik kroków, inny zapis (do dnia, nie do dziennika).
 const RITUALS = {
   poranek: {
-    icon: "🌅", title: "Poranek", mins: 1.5,
+    title: "Poranek", mins: 1.5,
     steps: [
       { id: "weather", type: "weather", prompt: "Jaka dziś pogoda w głowie?" },
       { type: "quote" },
@@ -249,7 +256,7 @@ const RITUALS = {
     ],
   },
   wieczor: {
-    icon: "🌙", title: "Wieczór", mins: 3,
+    title: "Wieczór", mins: 3,
     steps: [
       { id: "happened", type: "choice", label: "Czy prognoza się sprawdziła",
         showIf: (a, day) => !!day.forecast,

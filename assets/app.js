@@ -65,6 +65,28 @@ document.addEventListener("alpine:init", () => {
       localStorage.setItem(STORE_KEY, JSON.stringify(this.s));
     },
 
+    // ---------- niebo ----------
+    skyDef() {
+      let id = this.day().weather;
+      if (this.tab === "burza" && this.sosWeather) id = this.sosWeather;
+      if (this.run?.kind === "exercise" && this.sosWeather) id = this.sosWeather;
+      if (this.run?.answers.weather) id = this.run.answers.weather;
+      return this.weather(id) || DEFAULT_SKY;
+    },
+    paintSky() {
+      const w = this.skyDef();
+      // po ćwiczeniu, które obniżyło napięcie, morze się uspokaja
+      const calmed = this.run?.done && (this.delta(this.run.answers) ?? 0) < 0;
+      const root = document.documentElement.style;
+      root.setProperty("--s1", w.sky[0]);
+      root.setProperty("--s2", w.sky[1]);
+      root.setProperty("--s3", w.sky[2]);
+      root.setProperty("--sea", w.sea);
+      root.setProperty("--amp", calmed ? w.amp * 0.4 : w.amp);
+      document.documentElement.dataset.sky = w.id;
+      document.querySelector('meta[name="theme-color"]').content = w.sky[0];
+    },
+
     // ---------- dni ----------
     day(key = this.today) {
       if (!this.s.days[key]) this.s.days[key] = { habits: {} };
