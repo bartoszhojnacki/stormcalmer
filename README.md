@@ -6,7 +6,7 @@ Statyczna appka (HTML + Alpine.js) łącząca stoicyzm i CBT: poranna „pogoda 
 
 - **Front:** vanilla HTML/CSS + [Alpine.js](https://alpinejs.dev) (lokalna kopia w `assets/`), bez kroku budowania.
 - **Design:** „Niebo i morze”: niebo zmienia barwę z pogodą dnia, fale rosną przy burzy. Fonty Cormorant Garamond + Jost (OFL) hostowane lokalnie w `assets/fonts/`.
-- **Offline:** `sw.js` (stale-while-revalidate) + `manifest.webmanifest`. Instalacja jako aplikacja na ekranie głównym.
+- **Offline:** `sw.js` (najpierw sieć, cache gdy offline) + `manifest.webmanifest`. Instalacja jako aplikacja na ekranie głównym.
 - **Dane:** `localStorage` (`storm.v1`), tylko na tym urządzeniu. Kopia: eksport/import JSON w zakładce „Więcej”.
 
 ## Deploy (GitHub Pages)
@@ -15,7 +15,7 @@ Statyczna appka (HTML + Alpine.js) łącząca stoicyzm i CBT: poranna „pogoda 
 2. Settings → Pages → Source: **Deploy from a branch** → Branch: **main** / Folder: **/ (root)** → Save.
 3. URL: `https://<username>.github.io/stormcalmer/`.
 
-Po każdej zmianie podbij `CACHE` w `sw.js` (`storm-v1` → `storm-v2`), żeby telefon pobrał nową wersję. Nowa wersja pokazuje się przy drugim uruchomieniu.
+Po większej zmianie podbij `CACHE` w `sw.js` (np. `storm-v4` → `storm-v5`), żeby wyczyścić stary cache offline. Online aplikacja i tak zawsze pobiera świeże pliki.
 
 ## Instalacja na iPhone / iPad (Safari)
 

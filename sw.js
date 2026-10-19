@@ -1,6 +1,7 @@
-// Offline: serwuj z cache od razu, w tle pobierz świeżą wersję (stale-while-revalidate).
-// Nowa wersja appki pokazuje się przy kolejnym uruchomieniu.
-const CACHE = "storm-v3";
+// Najpierw sieć (z pominięciem cache HTTP przeglądarki), cache tylko gdy offline
+// albo gdy serwer nie odpowie w NETWORK_TIMEOUT. Dzięki temu zmiany widać od razu.
+const CACHE = "storm-v4";
+const NETWORK_TIMEOUT = 3000;
 const ASSETS = [
   "./",
   "index.html",
@@ -28,7 +29,8 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
+  // cache: "reload" omija cache HTTP (GitHub Pages trzyma pliki do 10 min)
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: "reload" })))));
   self.skipWaiting();
 });
 
@@ -43,14 +45,19 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(e.request, { ignoreSearch: true });
-      const fresh = fetch(e.request)
-        .then((res) => {
-          if (res.ok) cache.put(e.request, res.clone());
-          return res;
-        })
-        .catch(() => cached);
-      return cached || fresh;
+      const fromCache = () => cache.match(e.request, { ignoreSearch: true });
+      const network = fetch(e.request, { cache: "no-cache" }).then((res) => {
+        if (res.ok) cache.put(e.request, res.clone());
+        return res;
+      });
+      const timeout = new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT));
+      try {
+        const res = await Promise.race([network, timeout]);
+        if (res) return res;
+        return (await fromCache()) || network; // wolna sieć: cache, a jeśli pusty, czekamy dalej
+      } catch {
+        return (await fromCache()) || Response.error();
+      }
     })
   );
 });

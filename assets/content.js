@@ -6,7 +6,7 @@ const WEATHERS = [
   { id: "pogodnie", label: "Pogodnie", hint: "spokój, jest przestrzeń",
     sky: ["#233668", "#6c5a8e", "#e0a07a"], sea: "#22325c", amp: 0.45 },
   { id: "mgla",     label: "Mgła",     hint: "odkładanie, apatia",
-    sky: ["#373e4c", "#646c7c", "#a4a9b2"], sea: "#454d5c", amp: 0.35 },
+    sky: ["#2a2f39", "#4a515e", "#737a85"], sea: "#2a303a", amp: 0.35 },
   { id: "wichura",  label: "Wichura",  hint: "niepokój, gonitwa myśli",
     sky: ["#171b3a", "#38346b", "#7468a3"], sea: "#1c1e44", amp: 1.15 },
   { id: "burza",    label: "Burza",    hint: "złość, rozdrażnienie",

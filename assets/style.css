@@ -13,7 +13,7 @@
 :root {
   --ink: #f6f1ea;
   --ink-2: rgb(246 241 234 / 0.72);
-  --ink-3: rgb(246 241 234 / 0.48);
+  --ink-3: rgb(246 241 234 / 0.56);
   --hair: rgb(246 241 234 / 0.16);
   --veil: rgb(8 10 22 / 0.22);
   --gold: #f1c79a;
@@ -36,6 +36,8 @@ body {
   color: var(--ink);
   font: 300 17px/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
+  /* ledwo widoczna aureola: tekst czytelny także na jasnym horyzoncie */
+  text-shadow: 0 0 14px rgb(4 6 18 / 0.28), 0 1px 2px rgb(4 6 18 / 0.18);
 }
 
 button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; text-align: inherit; }
@@ -61,7 +63,7 @@ button:disabled { opacity: 0.3; cursor: default; }
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(120% 60% at 50% 100%, color-mix(in srgb, var(--s3) 85%, white 15%) 0%, transparent 60%),
+    radial-gradient(120% 60% at 50% 100%, color-mix(in srgb, var(--s3) 92%, white 8%) 0%, transparent 60%),
     linear-gradient(180deg, var(--s1) 0%, var(--s2) 55%, var(--s3) 100%);
   overflow: hidden;
 }
@@ -98,7 +100,7 @@ button:disabled { opacity: 0.3; cursor: default; }
   width: 160%;
   height: 120px;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.09);
+  background: rgb(255 255 255 / 0.06);
   filter: blur(30px);
   animation: drift 38s ease-in-out infinite alternate;
 }
@@ -443,6 +445,7 @@ button:disabled { opacity: 0.3; cursor: default; }
   letter-spacing: 0.22em;
   text-transform: uppercase;
   transition: opacity 0.3s, transform 0.15s;
+  text-shadow: none;
 }
 .cta:active { transform: scale(0.98); }
 .cta .ic { width: 18px; height: 18px; }
@@ -543,7 +546,10 @@ button:disabled { opacity: 0.3; cursor: default; }
   justify-content: center;
   padding: 1.6rem 0 calc(var(--safe-b) + 0.6rem);
   /* głęboka woda pod ikonami, żeby przy spokojnym morzu nie ginęły na jasnym horyzoncie */
-  background: linear-gradient(to top, color-mix(in srgb, var(--sea) 70%, black) 45%, transparent);
+  background: linear-gradient(to top,
+    color-mix(in srgb, var(--sea) 40%, #05070f) 0%,
+    color-mix(in srgb, var(--sea) 40%, #05070f) 50%,
+    transparent 100%);
 }
 .tabbar button {
   flex: 1;
@@ -552,8 +558,10 @@ button:disabled { opacity: 0.3; cursor: default; }
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  color: var(--ink-2);
-  font-size: 0.6rem;
+  color: rgb(246 241 234 / 0.8);
+  font-size: 0.66rem;
+  font-weight: 400;
+  text-shadow: 0 1px 3px rgb(4 6 18 / 0.6);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   transition: color 0.3s;
