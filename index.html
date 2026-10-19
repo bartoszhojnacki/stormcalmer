@@ -49,6 +49,28 @@
   <div class="wave w1"><svg viewBox="0 0 2880 100" preserveAspectRatio="none"><path d="M0 50Q180 18 360 50T720 50T1080 50T1440 50T1800 50T2160 50T2520 50T2880 50V100H0Z"/></svg></div>
 </div>
 
+<!-- ============ INSTALACJA (przed pierwszym rejsem) ============ -->
+<template x-if="showInstall && !run">
+  <main class="run install">
+    <p class="eyebrow">Stormcalmer</p>
+    <h1 class="title">Najpierw zakotwicz aplikację na ekranie.</h1>
+    <template x-if="isIOS()">
+      <div>
+        <p class="lede">Na iPhonie i iPadzie dane z karty Safari i z aplikacji na ekranie początkowym są <b>osobne</b>. Jeśli zaczniesz tutaj, po instalacji zaczniesz od zera.</p>
+        <ol class="steps-list">
+          <li>Stuknij <b>Udostępnij</b> <span class="share-glyph">⎙</span> na dole Safari.</li>
+          <li>Wybierz <b>Do ekranu początkowego</b>.</li>
+          <li>Otwórz Stormcalmer z nowej ikony. Działa też bez internetu.</li>
+        </ol>
+      </div>
+    </template>
+    <template x-if="!isIOS()">
+      <p class="lede">Możesz korzystać w przeglądarce albo zainstalować aplikację z menu przeglądarki. Dane zostają tylko na tym urządzeniu.</p>
+    </template>
+    <button class="cta" @click="skipInstall()"><span x-text="isIOS() ? 'Kontynuuj w Safari' : 'Zaczynamy'"></span><svg class="ic"><use href="#i-arrow"/></svg></button>
+  </main>
+</template>
+
 <!-- ============ PRZEBIEG KROKÓW (ćwiczenie / rytuał) ============ -->
 <template x-if="run">
   <main class="run">
@@ -56,75 +78,75 @@
       <button class="icon-btn" @click="run.done ? (run = null) : back()" aria-label="Wstecz">
         <svg class="ic"><use href="#i-back"/></svg>
       </button>
-      <div class="eyebrow" x-text="run.def.title"></div>
+      <div class="eyebrow" x-text="run?.def.title"></div>
       <button class="icon-btn" @click="cancel()" aria-label="Zamknij">
         <svg class="ic"><use href="#i-close"/></svg>
       </button>
     </header>
-    <div class="progress" x-show="!run.done"><div :style="`width:${progress()}%`"></div></div>
+    <div class="progress" x-show="run && !run.done"><div :style="`width:${progress()}%`"></div></div>
 
     <!-- krok -->
-    <template x-if="!run.done && step()">
+    <template x-if="run && !run.done && step()">
       <section class="step" :key="run.i">
-        <template x-if="step().type === 'quote'">
-          <figure class="quote quote-xl" x-data="{ q: quoteFor(today, run.answers.weather) }">
+        <template x-if="st.type === 'quote'">
+          <figure class="quote quote-xl" x-data="{ q: quoteFor(today, ans.weather) }">
             <blockquote x-text="q.t"></blockquote>
             <figcaption><span x-text="q.a"></span> · <span x-text="q.s"></span></figcaption>
             <p class="reflect" x-text="q.q"></p>
           </figure>
         </template>
 
-        <template x-if="step().type !== 'quote'">
+        <template x-if="st.type !== 'quote'">
           <div>
             <p class="prompt" x-text="stepText('prompt')"></p>
-            <p class="hint" x-show="step().hint" x-text="stepText('hint')"></p>
+            <p class="hint" x-show="st.hint" x-text="stepText('hint')"></p>
           </div>
         </template>
 
-        <template x-if="step().type === 'text'">
-          <input type="text" class="field" x-model="run.answers[step().id]" @keydown.enter="next()" />
+        <template x-if="st.type === 'text'">
+          <input type="text" class="field" x-model="ans[st.id]" @keydown.enter="next()" />
         </template>
-        <template x-if="step().type === 'textarea' || step().type === 'lines'">
-          <textarea class="field lined" rows="4" x-model="run.answers[step().id]"></textarea>
+        <template x-if="st.type === 'textarea' || st.type === 'lines'">
+          <textarea class="field lined" rows="4" x-model="ans[st.id]"></textarea>
         </template>
 
-        <template x-if="step().type === 'scale'">
+        <template x-if="st.type === 'scale'">
           <div class="scale">
-            <div class="scale-val" x-text="run.answers[step().id]"></div>
-            <input type="range" min="0" max="10" step="1" x-model.number="run.answers[step().id]" />
+            <div class="scale-val" x-text="ans[st.id]"></div>
+            <input type="range" min="0" max="10" step="1" x-model.number="ans[st.id]" />
             <div class="scale-ends"><span>cisza</span><span>sztorm</span></div>
           </div>
         </template>
 
-        <template x-if="step().type === 'choice'">
+        <template x-if="st.type === 'choice'">
           <div class="choices">
-            <template x-for="o in step().options" :key="o.v">
-              <button class="choice" :class="{ on: run.answers[step().id] === o.v }"
-                      @click="run.answers[step().id] = o.v"><span x-text="o.label"></span></button>
+            <template x-for="o in st.options" :key="o.v">
+              <button class="choice" :class="{ on: ans[st.id] === o.v }"
+                      @click="ans[st.id] = o.v"><span x-text="o.label"></span></button>
             </template>
           </div>
         </template>
 
-        <template x-if="step().type === 'multi'">
+        <template x-if="st.type === 'multi'">
           <div class="choices">
-            <template x-for="o in step().options" :key="o.id">
-              <button class="choice" :class="{ on: (run.answers[step().id] || []).includes(o.id) }"
-                      @click="toggleMulti(step().id, o.id)">
+            <template x-for="o in st.options" :key="o.id">
+              <button class="choice" :class="{ on: (ans[st.id] || []).includes(o.id) }"
+                      @click="toggleMulti(st.id, o.id)">
                 <span><span x-text="o.label"></span><small x-text="o.d"></small></span>
               </button>
             </template>
           </div>
         </template>
 
-        <template x-if="step().type === 'classify'">
+        <template x-if="st.type === 'classify'">
           <div class="classify">
-            <template x-for="item in lines(run.answers[step().from])" :key="item">
+            <template x-for="item in lines(ans[st.from])" :key="item">
               <div class="cls-row">
                 <div class="cls-item" x-text="item"></div>
                 <div class="seg">
-                  <template x-for="o in step().options" :key="o.v">
-                    <button :class="{ on: (run.answers[step().id] || {})[item] === o.v, ['v-' + o.v]: true }"
-                            @click="classify(step().id, item, o.v)" x-text="o.label"></button>
+                  <template x-for="o in st.options" :key="o.v">
+                    <button :class="{ on: (ans[st.id] || {})[item] === o.v, ['v-' + o.v]: true }"
+                            @click="classify(st.id, item, o.v)" x-text="o.label"></button>
                   </template>
                 </div>
               </div>
@@ -132,7 +154,7 @@
           </div>
         </template>
 
-        <template x-if="step().type === 'timer'">
+        <template x-if="st.type === 'timer'">
           <div class="breath">
             <div class="horizon">
               <div class="breath-sun" :class="breathPhase() === 'Wdech' ? 'up' : 'down'"></div>
@@ -143,11 +165,87 @@
           </div>
         </template>
 
-        <template x-if="step().type === 'weather'">
+        <template x-if="st.type === 'intro'">
+          <div class="intro">
+            <figure class="quote">
+              <blockquote>Bądź jak cypel, o który bez końca rozbijają się fale.</blockquote>
+              <figcaption>Marek Aureliusz · Rozmyślania IV.49</figcaption>
+            </figure>
+            <div class="intro-wx" x-show="preview">
+              <svg class="ic"><use :href="'#i-' + preview"/></svg>
+              <span x-text="weather(preview)?.label"></span>
+              <span class="muted" x-text="weather(preview)?.hint"></span>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="st.type === 'storms'">
+          <div class="swatches four">
+            <template x-for="w in WEATHERS.filter(x => x.id !== 'pogodnie')" :key="w.id">
+              <button class="swatch" :class="{ on: (ans.storms || []).includes(w.id) }" @click="toggleStorm(w.id)">
+                <span class="orb" :style="`--a:${w.sky[0]};--b:${w.sky[1]};--c:${w.sky[2]}`">
+                  <svg class="ic"><use :href="'#i-' + w.id"/></svg>
+                </span>
+                <span class="sw-label" x-text="w.label"></span>
+                <span class="sw-hint" x-text="w.hint"></span>
+              </button>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="st.type === 'baseline'">
+          <div class="baseline">
+            <template x-for="b in BASELINE_ITEMS" :key="b.id">
+              <div class="bl-row">
+                <div class="bl-head"><span class="bl-label" x-text="b.label"></span><span class="bl-val" x-text="bl[b.id]"></span></div>
+                <input type="range" min="0" max="10" step="1" x-model.number="bl[b.id]" />
+                <div class="scale-ends"><span x-text="b.ends[0]"></span><span x-text="b.ends[1]"></span></div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="st.type === 'habitPick'">
+          <div class="choices">
+            <template x-for="h in suggestedHabits()" :key="h.id">
+              <div class="pick" :class="{ on: pickedHabit(h.id) }">
+                <button class="choice" :class="{ on: pickedHabit(h.id) }" @click="toggleHabitPick(h)"
+                        :disabled="!pickedHabit(h.id) && (ans.habits || []).length >= 3">
+                  <span><span x-text="h.name"></span>
+                    <small x-show="!pickedHabit(h.id)" x-text="h.for.some(w => (ans.storms || []).includes(w)) ? 'polecany przy Twoich burzach' : ''"></small></span>
+                </button>
+                <template x-if="pickedHabit(h.id)">
+                  <div class="pick-fields">
+                    <label class="label">Kotwica: po czym?<input type="text" class="field" x-model="picked(h.id).anchor" /></label>
+                    <label class="label">Wersja minimum<input type="text" class="field" x-model="picked(h.id).min" /></label>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <p class="legend" x-text="`${(ans.habits || []).length}/3 · własne dodasz później w zakładce Nawyki`"></p>
+          </div>
+        </template>
+
+        <template x-if="st.type === 'rhythm'">
+          <div class="rhythm">
+            <label class="time-row"><span class="row-title">Poranek</span><input type="time" class="field time" x-model="rh.morning" /></label>
+            <label class="time-row"><span class="row-title">Wieczór</span><input type="time" class="field time" x-model="rh.evening" /></label>
+            <h2 class="label">Przypomnienie</h2>
+            <p class="lede">Aplikacja sama nie wyśle powiadomienia, ale iPhone może ją otworzyć o stałej porze:</p>
+            <ol class="steps-list">
+              <li>Otwórz <b>Skróty</b> → <b>Automatyzacja</b> → <b>Nowa automatyzacja</b>.</li>
+              <li><b>Pora dnia</b>: <span x-text="rh.morning"></span>, codziennie, <b>uruchom natychmiast</b>.</li>
+              <li>Akcja <b>Otwórz aplikację</b> → Stormcalmer.</li>
+              <li>To samo na <span x-text="rh.evening"></span>.</li>
+            </ol>
+          </div>
+        </template>
+
+        <template x-if="st.type === 'weather'">
           <div class="swatches">
             <template x-for="w in WEATHERS" :key="w.id">
-              <button class="swatch" :class="{ on: run.answers.weather === w.id }"
-                      @click="run.answers.weather = w.id; day().weather = w.id; save()">
+              <button class="swatch" :class="{ on: ans.weather === w.id }"
+                      @click="ans.weather = w.id; day().weather = w.id; save()">
                 <span class="orb" :style="`--a:${w.sky[0]};--b:${w.sky[1]};--c:${w.sky[2]}`">
                   <svg class="ic"><use :href="'#i-' + w.id"/></svg>
                 </span>
@@ -156,11 +254,11 @@
             </template>
           </div>
         </template>
-        <template x-if="step().type === 'weather' && run.answers.weather">
-          <p class="hint center" x-text="weather(run.answers.weather).hint"></p>
+        <template x-if="st.type === 'weather' && ans.weather">
+          <p class="hint center" x-text="weather(ans.weather).hint"></p>
         </template>
 
-        <template x-if="step().type === 'habits'">
+        <template x-if="st.type === 'habits'">
           <div class="habit-rows">
             <template x-for="h in activeHabits()" :key="h.id">
               <div class="habit-row">
@@ -174,24 +272,24 @@
         </template>
 
         <button class="cta" :disabled="!canNext()" @click="next()">
-          <span x-text="run.i === visibleSteps().length - 1 ? 'Zakończ' : 'Dalej'"></span>
+          <span x-text="run?.i === visibleSteps().length - 1 ? 'Zakończ' : 'Dalej'"></span>
           <svg class="ic"><use href="#i-arrow"/></svg>
         </button>
       </section>
     </template>
 
     <!-- podsumowanie -->
-    <template x-if="run.done">
+    <template x-if="run?.done">
       <section class="step done">
-        <p class="done-title" x-text="run.kind === 'ritual' ? (run.key === 'poranek' ? 'Dobrego dnia.' : 'Dzień domknięty.') : 'Zapisane.'"></p>
-        <template x-if="delta(run.answers) !== null">
-          <p class="delta"><span x-text="run.answers.before"></span><span class="arrow">→</span><span x-text="run.answers.after"></span></p>
+        <p class="done-title" x-text="run?.kind === 'ritual' ? (run?.key === 'poranek' ? 'Dobrego dnia.' : 'Dzień domknięty.') : 'Zapisane.'"></p>
+        <template x-if="delta(run?.answers || {}) !== null">
+          <p class="delta"><span x-text="runAnswer('before')"></span><span class="arrow">→</span><span x-text="runAnswer('after')"></span></p>
         </template>
-        <template x-if="delta(run.answers) < 0">
+        <template x-if="delta(run?.answers || {}) < 0">
           <p class="hint center">Morze się uspokaja.</p>
         </template>
         <dl class="summary">
-          <template x-for="r in summary(run.def, run.answers)" :key="r.label">
+          <template x-for="r in run ? summary(run.def, run.answers) : []" :key="r.label">
             <div><dt x-text="r.label"></dt><dd x-text="r.value"></dd></div>
           </template>
         </dl>
@@ -202,7 +300,7 @@
 </template>
 
 <!-- ============ ZAKŁADKI ============ -->
-<template x-if="!run">
+<template x-if="!run && !showInstall">
 <main class="page">
 
   <!-- DZIŚ -->
@@ -218,6 +316,34 @@
       <blockquote x-text="todayQuote().t"></blockquote>
       <figcaption><span x-text="todayQuote().a"></span> · <span x-text="todayQuote().s"></span></figcaption>
     </figure>
+
+    <template x-if="showPort()">
+      <aside class="port">
+        <span class="label">Twój port</span>
+        <p x-text="'„' + s.profile.goal + '”'"></p>
+      </aside>
+    </template>
+
+    <template x-if="!s.profile?.onboardedAt">
+      <aside class="card-note">
+        <span class="label">Pierwszy rejs</span>
+        <p class="card-title">Ustaw swój port</p>
+        <p class="lede">Twoje najczęstsze burze, cel na miesiąc, punkt wyjścia i nawyki z kotwicami. Trzy minuty.</p>
+        <button class="text-btn" @click="start('flow', 'onboarding')">Zacznij →</button>
+      </aside>
+    </template>
+
+    <template x-if="currentCard()">
+      <aside class="card-note" x-data="{ get c() { return currentCard() } }">
+        <span class="label" x-text="'Dzień ' + (c.day + 1)"></span>
+        <p class="card-title" x-text="c.title"></p>
+        <p class="lede" x-text="c.body"></p>
+        <div class="card-actions">
+          <button class="text-btn" @click="goCard(c)" x-text="c.cta + ' →'"></button>
+          <button class="text-btn muted-btn" @click="dismissCard(c)">później</button>
+        </div>
+      </aside>
+    </template>
 
     <nav class="rituals">
       <button class="ritual" :class="{ done: peekDay(today)?.morningAt }" @click="start('ritual', 'poranek')">
@@ -308,7 +434,7 @@
         <button class="habit-card" @click="editHabit(h)">
           <span class="hc-top">
             <span class="row-body"><span class="row-title" x-text="h.name"></span>
-              <span class="row-sub" x-text="'minimum: ' + (h.min || '—')"></span></span>
+              <span class="row-sub" x-text="(h.anchor ? h.anchor + ' · ' : '') + 'minimum: ' + (h.min || '—')"></span></span>
             <span class="hc-week"><b x-text="habitWeek(h.id)"></b>/7</span>
           </span>
           <span class="dots">
@@ -326,6 +452,7 @@
         <div class="sheet-body">
           <h2 class="title sm" x-text="habitForm.id ? 'Edytuj nawyk' : 'Nowy nawyk'"></h2>
           <label class="label">Nazwa<input type="text" class="field" x-model="habitForm.name" placeholder="np. Medytacja" /></label>
+          <label class="label">Kotwica: po czym?<input type="text" class="field" x-model="habitForm.anchor" placeholder="np. po porannej kawie" /></label>
           <label class="label">Wersja minimum<input type="text" class="field" x-model="habitForm.min" placeholder="np. trzy oddechy" /></label>
           <button class="cta" @click="saveHabit()"><span>Zapisz</span></button>
           <button class="text-btn danger" x-show="habitForm.id" @click="archiveHabit()">usuń z listy (historia zostaje)</button>
@@ -368,6 +495,19 @@
       </div>
     </template>
 
+    <template x-if="progressRows().length">
+      <div class="figure">
+        <h2 class="label">Punkt wyjścia → teraz</h2>
+        <template x-for="r in progressRows()" :key="r.id">
+          <div class="prog-row">
+            <span class="bar-name" x-text="r.label"></span>
+            <span class="prog-val"><span x-text="r.from"></span><span class="arrow">→</span><b x-text="r.to"></b></span>
+          </div>
+        </template>
+        <p class="lede" x-show="s.profile?.goal" x-text="'Twój port: „' + s.profile.goal + '”'"></p>
+      </div>
+    </template>
+
     <template x-if="f && f.n">
       <div class="figure">
         <h2 class="label">Poranne prognozy</h2>
@@ -391,13 +531,13 @@
 
     <h2 class="label" x-show="journal().length">Dziennik</h2>
     <div class="list">
-      <template x-for="e in journal()" :key="e.id">
+      <template x-for="e in journal()" :key="e.key">
         <div class="j-item">
-          <button class="row compact" @click="openEntry = openEntry === e.id ? null : e.id">
+          <button class="row compact" @click="openEntry = openEntry === e.key ? null : e.key">
             <span class="row-body"><span class="row-title" x-text="entryDef(e).title"></span></span>
             <span class="row-meta" x-text="fmtDate(e.ts)"></span>
           </button>
-          <template x-if="openEntry === e.id">
+          <template x-if="openEntry === e.key">
             <dl class="summary">
               <template x-for="r in summary(entryDef(e), e.answers)" :key="r.label">
                 <div><dt x-text="r.label"></dt><dd x-text="r.value"></dd></div>
@@ -425,7 +565,13 @@
     <button class="cta" x-show="pendingImport" @click="confirmImport()"><span>Zastąp dane</span></button>
 
     <h2 class="label">Przypomnienia</h2>
-    <p class="lede">Skróty → Automatyzacja → Pora dnia (np. 7:30) → Otwórz aplikację → Stormcalmer. Druga automatyzacja na wieczór.</p>
+    <p class="lede" x-text="rhythmHint()"></p>
+
+    <h2 class="label">Port i punkt wyjścia</h2>
+    <div class="list">
+      <button class="row compact" @click="start('flow', 'onboarding')"><span class="row-body"><span class="row-title" x-text="s.profile?.onboardedAt ? 'Powtórz pierwszy rejs' : 'Ustaw swój port'"></span></span><svg class="ic"><use href="#i-arrow"/></svg></button>
+      <button class="row compact" x-show="s.profile?.onboardedAt" @click="start('flow', 'checkin')"><span class="row-body"><span class="row-title">Punkt kontrolny teraz</span></span><svg class="ic"><use href="#i-arrow"/></svg></button>
+    </div>
 
     <aside class="crisis">
       <h2 class="label">Gdy jest naprawdę źle</h2>

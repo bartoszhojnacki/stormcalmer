@@ -21,7 +21,7 @@ function hash(str) {
 }
 
 function emptyState() {
-  return { version: 1, days: {}, entries: [], habits: DEFAULT_HABITS.map((h) => ({ ...h })) };
+  return { version: 1, days: {}, entries: [], habits: DEFAULT_HABITS.map((h) => ({ ...h })), profile: {}, checks: [] };
 }
 
 function loadState() {
@@ -42,15 +42,17 @@ document.addEventListener("alpine:init", () => {
     tab: "dzis",
     today: dayKey(),
     // aktywny przebieg kroków (ćwiczenie albo rytuał)
-    run: null,     // { kind: 'exercise'|'ritual', key, def, i, answers, done }
+    run: null,     // { kind: 'exercise'|'ritual'|'flow', key, def, i, answers, done }
     timer: null,   // { left, phase, handle }
     sosWeather: null,
     openEntry: null,
     habitForm: null,
     importMsg: "",
     pendingImport: null,
+    showInstall: false,
+    preview: null, // pogoda pokazywana na powitaniu (niebo przechodzi przez wszystkie)
 
-    WEATHERS, EXERCISES, RITUALS,
+    WEATHERS, EXERCISES, RITUALS, HABIT_SUGGESTIONS, BASELINE_ITEMS,
 
     init() {
       if (navigator.storage?.persist) navigator.storage.persist();
@@ -58,7 +60,26 @@ document.addEventListener("alpine:init", () => {
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) this.today = dayKey();
       });
-      this.sosWeather = this.day().weather || null;
+      this.sosWeather = this.peekDay(this.today)?.weather || this.s.profile?.storms?.[0] || null;
+      // nowy użytkownik (zero danych): najpierw instalacja, potem pierwszy rejs
+      const fresh = !this.s.profile?.onboardedAt && !this.s.profile?.skippedAt
+        && !Object.keys(this.s.days).length && !this.s.entries.length;
+      if (fresh) {
+        if (this.isStandalone()) this.start("flow", "onboarding");
+        else this.showInstall = true;
+      }
+    },
+
+    // ---------- instalacja ----------
+    isStandalone() {
+      return window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+    },
+    isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    },
+    skipInstall() {
+      this.showInstall = false;
+      this.start("flow", "onboarding");
     },
 
     save() {
@@ -67,10 +88,12 @@ document.addEventListener("alpine:init", () => {
 
     // ---------- niebo ----------
     skyDef() {
-      let id = this.day().weather;
+      if (this.preview) return this.weather(this.preview);
+      let id = this.peekDay(this.today)?.weather;
       if (this.tab === "burza" && this.sosWeather) id = this.sosWeather;
       if (this.run?.kind === "exercise" && this.sosWeather) id = this.sosWeather;
       if (this.run?.answers.weather) id = this.run.answers.weather;
+      if (this.run?.answers.storms?.length) id = this.run.answers.storms.at(-1);
       return this.weather(id) || DEFAULT_SKY;
     },
     paintSky() {
@@ -108,40 +131,65 @@ document.addEventListener("alpine:init", () => {
       return list[hash(key + (weatherId || "")) % list.length];
     },
     todayQuote() {
-      return this.quoteFor(this.today, this.day().weather);
+      return this.quoteFor(this.today, this.peekDay(this.today)?.weather);
     },
 
     // ---------- silnik kroków ----------
     start(kind, key) {
-      const def = kind === "exercise" ? EXERCISES[key] : RITUALS[key];
+      const def = { exercise: EXERCISES, ritual: RITUALS, flow: FLOWS }[kind][key];
       const answers = {};
-      if (kind === "ritual" && key === "poranek" && this.day().weather) answers.weather = this.day().weather;
+      const p = this.s.profile || {};
+      if (key === "onboarding") {
+        // powtórka startuje z dotychczasowymi odpowiedziami
+        Object.assign(answers, {
+          storms: [...(p.storms || [])],
+          goal: p.goal || "",
+          habits: [],
+          rhythm: { morning: "07:30", evening: "21:30", ...(p.rhythm || {}) },
+        });
+      }
+      if (def.steps.some((st) => st.type === "baseline")) {
+        answers.baseline = Object.fromEntries(BASELINE_ITEMS.map((b) => [b.id, 5]));
+      }
+      const w = this.peekDay(this.today)?.weather;
+      if (kind === "ritual" && key === "poranek" && w) answers.weather = w;
       this.run = { kind, key, def, i: 0, answers, done: false };
       this.enterStep();
     },
     enterStep() {
       const st = this.step();
+      this.stopPreview();
+      if (st.type === "intro") this.startPreview();
       if (st.type === "scale" && this.run.answers[st.id] == null) this.run.answers[st.id] = 5;
       if (st.type === "timer") this.startTimer(st.seconds);
       window.scrollTo(0, 0);
     },
     visibleSteps() {
       if (!this.run) return [];
-      const day = this.day();
+      const day = this.peekDay(this.today) || {};
       return this.run.def.steps.filter((st) => !st.showIf || st.showIf(this.run.answers, day));
     },
     step() {
-      return this.visibleSteps()[this.run.i];
+      return this.run ? this.visibleSteps()[this.run.i] : null;
     },
+    // Bezpieczne skróty dla szablonu: Alpine potrafi jeszcze przeliczyć pola
+    // zamykanego przebiegu, gdy run jest już null.
+    get st() { return this.step() || {}; },
+    get ans() { return this.run?.answers || {}; },
+    get bl() { return this.ans.baseline || {}; },
+    get rh() { return this.ans.rhythm || {}; },
+    picked(id) { return this.pickedHabit(id) || {}; },
     stepText(field) {
       const st = this.step();
-      return st ? resolve(st[field], this.run.answers, this.day()) : "";
+      return st ? resolve(st[field], this.run.answers, this.peekDay(this.today) || {}) : "";
     },
     progress() {
+      if (!this.run) return 0;
       return ((this.run.i + 1) / this.visibleSteps().length) * 100;
     },
     canNext() {
       const st = this.step();
+      if (!st) return false;
       const v = this.run.answers[st.id];
       if (st.type === "weather" || st.type === "choice") return !!v;
       if (st.type === "lines") return this.lines(v).length > 0;
@@ -150,6 +198,7 @@ document.addEventListener("alpine:init", () => {
         return items.every((it) => (v || {})[it]);
       }
       if (st.type === "timer") return !this.timer;
+      if (st.type === "storms") return v.length > 0;
       return true; // pola tekstowe są opcjonalne: lepiej coś niż nic
     },
     next() {
@@ -169,7 +218,49 @@ document.addEventListener("alpine:init", () => {
     },
     cancel() {
       this.stopTimer();
+      this.stopPreview();
+      // przerwany pierwszy rejs nie wraca sam; zostaje karta na ekranie Dziś
+      if (this.run?.key === "onboarding") {
+        this.s.profile = { ...this.s.profile, skippedAt: this.today };
+        this.save();
+      }
       this.run = null;
+    },
+
+    startPreview() {
+      const ids = WEATHERS.map((w) => w.id);
+      let i = 0;
+      this.preview = ids[0];
+      this._previewHandle = setInterval(() => (this.preview = ids[++i % ids.length]), 2600);
+    },
+    stopPreview() {
+      clearInterval(this._previewHandle);
+      this.preview = null;
+    },
+
+    // ---------- kroki onboardingu ----------
+    toggleStorm(id) {
+      const cur = this.run.answers.storms;
+      const i = cur.indexOf(id);
+      if (i >= 0) cur.splice(i, 1);
+      else {
+        cur.push(id);
+        if (cur.length > 2) cur.shift();
+      }
+    },
+    suggestedHabits() {
+      const storms = this.run?.answers.storms || [];
+      const score = (h) => (h.for.some((w) => storms.includes(w)) ? 0 : 1);
+      return [...HABIT_SUGGESTIONS].sort((a, b) => score(a) - score(b));
+    },
+    pickedHabit(id) {
+      return this.run?.answers.habits?.find((h) => h.id === id);
+    },
+    toggleHabitPick(sug) {
+      const list = this.run.answers.habits;
+      const i = list.findIndex((h) => h.id === sug.id);
+      if (i >= 0) list.splice(i, 1);
+      else if (list.length < 3) list.push({ id: sug.id, name: sug.name, min: sug.min, anchor: sug.anchor });
     },
     lines(v) {
       return (v || "").split("\n").map((x) => x.trim()).filter(Boolean);
@@ -203,9 +294,13 @@ document.addEventListener("alpine:init", () => {
 
     finish() {
       const { kind, key, answers } = this.run;
-      if (kind === "exercise") {
+      if (key === "onboarding") return this.finishOnboarding(answers);
+      if (key === "checkin") {
+        this.s.checks.push({ day: this.today, ...answers.baseline });
+        this.s.profile.cards = { ...(this.s.profile.cards || {}), [this.currentCard()?.id]: true };
+      } else if (kind === "exercise") {
         this.s.entries.unshift({
-          id: Date.now().toString(36),
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
           ts: new Date().toISOString(),
           day: this.today,
           exercise: key,
@@ -222,6 +317,74 @@ document.addEventListener("alpine:init", () => {
       this.run.done = true;
       window.scrollTo(0, 0);
     },
+    finishOnboarding(a) {
+      const answers = JSON.parse(JSON.stringify(a));
+      const repeat = !!this.s.profile?.onboardedAt;
+      this.s.profile = {
+        ...this.s.profile,
+        onboardedAt: this.s.profile?.onboardedAt || this.today,
+        storms: answers.storms,
+        goal: (answers.goal || "").trim(),
+        rhythm: answers.rhythm,
+        cards: this.s.profile?.cards || {},
+      };
+      const check = { day: this.today, ...answers.baseline };
+      // powtórka nie kasuje historii: nowy pomiar dopisuje się do starych
+      this.s.checks = repeat ? [...(this.s.checks || []), check] : [check];
+      const newHabits = answers.habits.map((h) => ({ ...h, id: "h-" + h.id.slice(2) + "-" + Date.now().toString(36) }));
+      if (repeat) {
+        const names = new Set(this.activeHabits().map((h) => h.name));
+        this.s.habits.push(...newHabits.filter((h) => !names.has(h.name)));
+      } else if (newHabits.length) {
+        // domyślne nawyki bez historii znikają, z historią trafiają do archiwum
+        const used = new Set(Object.values(this.s.days).flatMap((d) => Object.keys(d.habits || {})));
+        this.s.habits = this.s.habits.filter((h) => used.has(h.id)).map((h) => ({ ...h, archived: true }));
+        this.s.habits.push(...newHabits);
+      }
+      this.sosWeather = this.peekDay(this.today)?.weather || answers.storms[0] || null;
+      this.save();
+      this.stopPreview();
+      this.start("ritual", new Date().getHours() < 16 ? "poranek" : "wieczor");
+    },
+
+    // ---------- podróż: karty pierwszych tygodni ----------
+    daysSinceOnboard() {
+      const start = this.s.profile?.onboardedAt;
+      if (!start) return null;
+      return Math.round((new Date(this.today + "T12:00:00") - new Date(start + "T12:00:00")) / 86400000);
+    },
+    currentCard() {
+      const n = this.daysSinceOnboard();
+      if (n == null) return null;
+      const seen = this.s.profile.cards || {};
+      // najnowsza nieodhaczona karta, której dzień już nadszedł (najwyżej tydzień po terminie)
+      return [...JOURNEY].reverse().find((c) => c.day <= n && n - c.day <= 7 && !seen[c.id]) || null;
+    },
+    dismissCard(card) {
+      this.s.profile.cards = { ...(this.s.profile.cards || {}), [card.id]: true };
+      this.save();
+    },
+    goCard(card) {
+      const [kind, key] = card.go;
+      if (kind !== "flow") this.dismissCard(card); // punkt kontrolny odhacza się dopiero po odpowiedzi
+      if (kind === "tab") this.tab = key;
+      else this.start(kind, key);
+    },
+    showPort() {
+      const w = this.peekDay(this.today)?.weather;
+      return !!this.s.profile?.goal && w && w !== "pogodnie";
+    },
+    rhythmHint() {
+      const r = this.s.profile?.rhythm || this.run?.answers.rhythm || { morning: "07:30", evening: "21:30" };
+      return `Skróty → Automatyzacja → Nowa → Pora dnia: ${r.morning} → Otwórz aplikację → Stormcalmer. Druga taka sama na ${r.evening}.`;
+    },
+    progressRows() {
+      const c = this.s.checks || [];
+      if (c.length < 2) return [];
+      const first = c[0], last = c.at(-1);
+      return BASELINE_ITEMS.map((b) => ({ ...b, from: first[b.id], to: last[b.id] }));
+    },
+
     summary(def, answers) {
       return def.steps
         .filter((st) => st.id && st.label && answers[st.id] != null && answers[st.id] !== "")
@@ -235,7 +398,11 @@ document.addEventListener("alpine:init", () => {
       if (st.type === "multi") return v.map((id) => st.options.find((o) => o.id === id)?.label).join(", ");
       if (st.type === "choice") return st.options.find((o) => o.v === v)?.label;
       if (st.type === "scale") return `${v}/10`;
+      if (st.type === "baseline") return BASELINE_ITEMS.map((b) => `${b.label} ${v[b.id]}/10`).join("\n");
       return String(v);
+    },
+    runAnswer(key) {
+      return this.run?.answers?.[key] ?? "";
     },
     delta(answers) {
       if (answers.before == null || answers.after == null) return null;
@@ -340,7 +507,17 @@ document.addEventListener("alpine:init", () => {
         .filter(([, d]) => d.eveningAt)
         .map(([k, d]) => ({ id: "e-" + k, ts: d.eveningAt, kind: "wieczor", day: k, answers: d }));
       const ex = this.s.entries.map((e) => ({ ...e, kind: "exercise" }));
-      return [...ex, ...evenings].sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 40);
+      // unikalne klucze dla x-for (stare kopie mogą mieć zdublowane id)
+      const seen = new Set();
+      return [...ex, ...evenings]
+        .sort((a, b) => b.ts.localeCompare(a.ts))
+        .slice(0, 40)
+        .map((e) => {
+          let key = e.id;
+          while (seen.has(key)) key += "·";
+          seen.add(key);
+          return { ...e, key };
+        });
     },
     entryDef(e) {
       return e.kind === "exercise" ? EXERCISES[e.exercise] : RITUALS.wieczor;

@@ -281,3 +281,64 @@ const DEFAULT_HABITS = [
   { id: "h-czytanie", icon: "📖", name: "Lektura",            min: "Jedna strona" },
   { id: "h-telefon", icon: "📵", name: "Godzina bez telefonu", min: "15 minut bez telefonu" },
 ];
+
+// ---------- Onboarding ----------
+
+// Propozycje nawyków: kotwica (po czym?) + wersja minimum. `for` = przy jakich burzach polecać.
+const HABIT_SUGGESTIONS = [
+  { id: "s-oddech",  name: "Trzy spokojne oddechy",       min: "jeden oddech",              anchor: "zaraz po obudzeniu",        for: ["wichura"] },
+  { id: "s-spacer",  name: "Spacer bez telefonu",         min: "5 minut na zewnątrz",       anchor: "po obiedzie",               for: ["wichura", "deszcz"] },
+  { id: "s-pauza",   name: "Pauza przed odpowiedzią",     min: "policzyć do pięciu",        anchor: "zanim odpiszę na trudną wiadomość", for: ["burza"] },
+  { id: "s-ruch",    name: "Ruch, który zmęczy",          min: "10 przysiadów",             anchor: "po pracy",                  for: ["burza", "mgla"] },
+  { id: "s-start",   name: "Dwie minuty najtrudniejszego", min: "otworzyć plik",            anchor: "po pierwszej kawie",        for: ["mgla"] },
+  { id: "s-plan",    name: "Plan dnia na kartce",         min: "jedna najważniejsza rzecz", anchor: "przy porannej kawie",       for: ["mgla", "wichura"] },
+  { id: "s-swiatlo", name: "Światło dzienne",             min: "5 minut przy oknie",        anchor: "przed południem",           for: ["deszcz"] },
+  { id: "s-bliscy",  name: "Wiadomość do bliskiej osoby", min: "jedno zdanie",              anchor: "w drodze do domu",          for: ["deszcz"] },
+  { id: "s-lektura", name: "Lektura",                     min: "jedna strona",              anchor: "przed snem",                for: [] },
+  { id: "s-zimno",   name: "Zimny prysznic",              min: "30 sekund zimnej wody",     anchor: "na koniec prysznica",       for: [] },
+];
+
+const BASELINE_ITEMS = [
+  { id: "anx",    label: "Niepokój",          ends: ["spokój", "ciągły"] },
+  { id: "anger",  label: "Rozdrażnienie",     ends: ["łagodność", "wybuchy"] },
+  { id: "energy", label: "Energia",           ends: ["pusto", "pełno"] },
+];
+
+const FLOWS = {
+  onboarding: {
+    title: "Pierwszy rejs", mins: 3,
+    steps: [
+      { type: "intro", prompt: "Każdego dnia sprawdzasz pogodę w głowie.",
+        hint: "Nie wybierasz jej. Możesz się na nią przygotować i wiedzieć, co robić, gdy nadciąga burza. Na tym polega cała ta aplikacja." },
+      { id: "storms", type: "storms", label: "Najczęstsze burze", prompt: "Jakie burze odwiedzają Cię najczęściej?", hint: "Wybierz jedną albo dwie. Na tej podstawie podsunę ćwiczenia i nawyki." },
+      { id: "goal", type: "textarea", label: "Port", prompt: "Co chcesz, żeby było inaczej za miesiąc?",
+        hint: "Seneka: nie ma pomyślnego wiatru dla tego, kto nie wie, do którego portu płynie.\nWłasnymi słowami. Przypomnę Ci to w gorszy dzień." },
+      { id: "baseline", type: "baseline", label: "Punkt wyjścia", prompt: "Jak było przez ostatnie dwa tygodnie?",
+        hint: "To nie test. Za dwa tygodnie zapytam ponownie, żeby było widać, co się zmienia." },
+      { id: "habits", type: "habitPick", label: "Nawyki", prompt: "Wybierz do trzech nawyków.",
+        hint: "Mniej znaczy więcej. Każdy ma kotwicę (po czym go robisz) i wersję minimum na gorszy dzień." },
+      { id: "rhythm", type: "rhythm", label: "Rytm", prompt: "Kiedy chcesz zaglądać?",
+        hint: "Rano na 1,5 minuty, wieczorem na 3." },
+      { type: "info", prompt: (a) => `Gotowe. Zaczynamy od razu: ${new Date().getHours() < 16 ? "Twój pierwszy poranek" : "Twój pierwszy wieczór"}.`,
+        hint: "Przez pierwsze dwa tygodnie na ekranie Dziś będzie czekać jedna mała karta dziennie. Każdą możesz pominąć." },
+    ],
+  },
+  checkin: {
+    title: "Punkt kontrolny", mins: 1,
+    steps: [
+      { id: "baseline", type: "baseline", label: "Teraz", prompt: "Jak było przez ostatnie dwa tygodnie?",
+        hint: "Te same trzy pytania co na początku. Odpowiadaj szczerze, bez zaglądania do poprzednich." },
+    ],
+  },
+};
+
+// Karty pierwszych tygodni: `day` = dni od onboardingu. `go` = co uruchamia przycisk.
+const JOURNEY = [
+  { id: "j-pauza",  day: 1,  title: "Przećwicz burzę na spokojnie", body: "W burzy nikt nie uczy się nowych rzeczy. Zrób pauzę Seneki teraz, kiedy jest cicho, żeby w trudnej chwili mieć ją w ciele.", go: ["exercise", "pauza"], cta: "Zacznij · 3 min" },
+  { id: "j-zapis",  day: 2,  title: "Złap jedną myśl", body: "Zapis myśli na drobnej sprawie z wczoraj. Na niskiej stawce najłatwiej nauczyć się rozpoznawać zniekształcenia.", go: ["exercise", "zapis"], cta: "Zacznij · 5 min" },
+  { id: "j-kontr",  day: 3,  title: "Twoje i nie Twoje", body: "Dychotomia kontroli: serce stoicyzmu. Rozłóż na dwie kupki to, co Cię ostatnio zajmuje.", go: ["exercise", "kontrola"], cta: "Zacznij · 3 min" },
+  { id: "j-zgory",  day: 4,  title: "Spojrzenie z góry", body: "Oddal się od jednej sprawy, aż nabierze właściwych rozmiarów. Najbardziej filmowe z ćwiczeń.", go: ["exercise", "zgory"], cta: "Zacznij · 2 min" },
+  { id: "j-klimat", day: 6,  title: "Pierwszy tydzień za Tobą", body: "Zajrzyj do Klimatu: ile czarnych prognoz się sprawdziło? I zrób pierwszą kopię danych, zanim jest co tracić.", go: ["tab", "klimat"], cta: "Otwórz Klimat" },
+  { id: "j-check1", day: 13, title: "Punkt kontrolny", body: "Dwa tygodnie. Te same trzy pytania co na początku, żeby zobaczyć, co się zmieniło.", go: ["flow", "checkin"], cta: "Odpowiedz · 1 min" },
+  { id: "j-check2", day: 29, title: "Miesiąc", body: "Wróćmy do Twojego portu i punktu wyjścia. Co się zmieniło?", go: ["flow", "checkin"], cta: "Odpowiedz · 1 min" },
+];
