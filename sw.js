@@ -1,6 +1,6 @@
 // Offline: serwuj z cache od razu, w tle pobierz świeżą wersję (stale-while-revalidate).
 // Nowa wersja appki pokazuje się przy kolejnym uruchomieniu.
-const CACHE = "storm-v2";
+const CACHE = "storm-v3";
 const ASSETS = [
   "./",
   "index.html",
