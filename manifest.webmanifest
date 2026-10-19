@@ -1,0 +1,16 @@
+{
+  "name": "Stormcalmer",
+  "short_name": "Stormcalmer",
+  "description": "Stoicyzm i CBT na co dzień: pogoda w głowie, ćwiczenia na burze, nawyki.",
+  "lang": "pl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

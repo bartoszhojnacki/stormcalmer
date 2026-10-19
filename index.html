@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Stormcalmer" />
+  <title>Stormcalmer</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-180.png" />
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="assets/style.css" />
+  <script defer src="assets/content.js"></script>
+  <script defer src="assets/app.js"></script>
+  <script defer src="assets/alpine.min.js"></script>
+</head>
+<body x-data="storm" x-cloak>
+
+<!-- ============ PRZEBIEG KROKÓW (ćwiczenie / rytuał) ============ -->
+<template x-if="run">
+  <main class="run">
+    <header class="run-head">
+      <button class="ghost" @click="run.done ? (run = null) : back()" x-text="run.done ? '✕' : '‹'"></button>
+      <div class="run-title"><span x-text="run.def.icon"></span> <span x-text="run.def.title"></span></div>
+      <button class="ghost" x-show="!run.done" @click="cancel()">✕</button>
+    </header>
+    <div class="bar" x-show="!run.done"><div :style="`width:${progress()}%`"></div></div>
+
+    <!-- krok -->
+    <template x-if="!run.done && step()">
+      <section class="step" :key="run.i">
+        <template x-if="step().big"><div class="big" x-text="step().big"></div></template>
+        <p class="prompt" x-show="step().type !== 'quote'" x-text="stepText('prompt')"></p>
+        <p class="hint" x-show="step().hint" x-text="stepText('hint')"></p>
+
+        <template x-if="step().type === 'text'">
+          <input type="text" x-model="run.answers[step().id]" @keydown.enter="next()" />
+        </template>
+        <template x-if="step().type === 'textarea' || step().type === 'lines'">
+          <textarea rows="5" x-model="run.answers[step().id]"></textarea>
+        </template>
+
+        <template x-if="step().type === 'scale'">
+          <div class="scale">
+            <div class="scale-val" x-text="run.answers[step().id]"></div>
+            <input type="range" min="0" max="10" step="1" x-model.number="run.answers[step().id]" />
+            <div class="scale-ends"><span>0 · nic</span><span>10 · maksymalnie</span></div>
+          </div>
+        </template>
+
+        <template x-if="step().type === 'choice'">
+          <div class="options">
+            <template x-for="o in step().options" :key="o.v">
+              <button class="opt" :class="{ on: run.answers[step().id] === o.v }"
+                      @click="run.answers[step().id] = o.v" x-text="o.label"></button>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="step().type === 'multi'">
+          <div class="options">
+            <template x-for="o in step().options" :key="o.id">
+              <button class="opt opt-desc" :class="{ on: (run.answers[step().id] || []).includes(o.id) }"
+                      @click="toggleMulti(step().id, o.id)">
+                <strong x-text="o.label"></strong><small x-text="o.d"></small>
+              </button>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="step().type === 'classify'">
+          <div class="classify">
+            <template x-for="item in lines(run.answers[step().from])" :key="item">
+              <div class="cls-row">
+                <div class="cls-item" x-text="item"></div>
+                <div class="seg">
+                  <template x-for="o in step().options" :key="o.v">
+                    <button :class="{ on: (run.answers[step().id] || {})[item] === o.v, ['v-' + o.v]: true }"
+                            @click="classify(step().id, item, o.v)" x-text="o.label"></button>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="step().type === 'timer'">
+          <div class="timer">
+            <div class="breath" :class="breathPhase() === 'Wdech' ? 'in' : 'out'"></div>
+            <div class="breath-label" x-text="breathPhase()"></div>
+            <div class="muted" x-show="timer" x-text="timer ? timer.left + ' s' : ''"></div>
+            <button class="link" x-show="timer" @click="stopTimer()">Pomiń</button>
+          </div>
+        </template>
+
+        <template x-if="step().type === 'weather'">
+          <div class="weathers">
+            <template x-for="w in WEATHERS" :key="w.id">
+              <button class="wbtn" :class="{ on: run.answers.weather === w.id }" @click="run.answers.weather = w.id; day().weather = w.id; save()">
+                <span class="wi" x-text="w.icon"></span>
+                <span><strong x-text="w.label"></strong><small x-text="w.hint"></small></span>
+              </button>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="step().type === 'quote'">
+          <blockquote class="quote big-quote" x-data="{ q: quoteFor(today, run.answers.weather) }">
+            <p x-text="q.t"></p>
+            <cite x-text="`${q.a}, ${q.s}`"></cite>
+            <div class="reflect" x-text="q.q"></div>
+          </blockquote>
+        </template>
+
+        <template x-if="step().type === 'habits'">
+          <div class="habits">
+            <template x-for="h in activeHabits()" :key="h.id">
+              <div class="habit-row">
+                <span class="hi" x-text="h.icon"></span>
+                <span class="hn" x-text="h.name"></span>
+                <button class="hb" :class="{ on: habitState(h.id) === 'min' }" @click="setHabit(h.id, 'min')">min</button>
+                <button class="hb" :class="{ on: habitState(h.id) === 'done' }" @click="setHabit(h.id, 'done')">✓</button>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <button class="primary next" :disabled="!canNext()" @click="next()"
+                x-text="run.i === visibleSteps().length - 1 ? 'Zakończ' : 'Dalej'"></button>
+      </section>
+    </template>
+
+    <!-- podsumowanie -->
+    <template x-if="run.done">
+      <section class="step done">
+        <div class="big">🌤️</div>
+        <p class="prompt" x-text="run.kind === 'ritual' ? (run.key === 'poranek' ? 'Dobrego dnia.' : 'Dzień domknięty. Dobrej nocy.') : 'Zapisane.'"></p>
+        <template x-if="delta(run.answers) !== null">
+          <p class="delta" x-text="`${run.answers.before} → ${run.answers.after}`"></p>
+        </template>
+        <dl class="summary">
+          <template x-for="r in summary(run.def, run.answers)" :key="r.label">
+            <div><dt x-text="r.label"></dt><dd x-text="r.value"></dd></div>
+          </template>
+        </dl>
+        <button class="primary" @click="run = null; tab = 'dzis'">Wróć</button>
+      </section>
+    </template>
+  </main>
+</template>
+
+<!-- ============ ZAKŁADKI ============ -->
+<template x-if="!run">
+<main class="page">
+
+  <!-- DZIŚ -->
+  <section x-show="tab === 'dzis'">
+    <header class="hero">
+      <div class="date" x-text="todayLabel()"></div>
+      <div class="hero-w" x-show="peekDay(today)?.weather">
+        <span x-text="weather(peekDay(today)?.weather)?.icon"></span>
+        <span x-text="weather(peekDay(today)?.weather)?.label"></span>
+      </div>
+    </header>
+
+    <blockquote class="quote">
+      <p x-text="todayQuote().t"></p>
+      <cite x-text="`${todayQuote().a}, ${todayQuote().s}`"></cite>
+    </blockquote>
+
+    <div class="cards">
+      <button class="card" :class="{ done: peekDay(today)?.morningAt }" @click="start('ritual', 'poranek')">
+        <span class="ci">🌅</span>
+        <span class="ct"><strong>Poranek</strong>
+          <small x-text="peekDay(today)?.morningAt ? (peekDay(today).forecast ? 'Prognoza: ' + peekDay(today).forecast : 'Zrobione') : 'Pogoda, cytat, prognoza · 1,5 min'"></small></span>
+        <span class="check" x-show="peekDay(today)?.morningAt">✓</span>
+      </button>
+      <button class="card" :class="{ done: peekDay(today)?.eveningAt }" @click="start('ritual', 'wieczor')">
+        <span class="ci">🌙</span>
+        <span class="ct"><strong>Wieczór</strong>
+          <small x-text="peekDay(today)?.eveningAt ? 'Dzień domknięty' : 'Przegląd Seneki i nawyki · 3 min'"></small></span>
+        <span class="check" x-show="peekDay(today)?.eveningAt">✓</span>
+      </button>
+    </div>
+
+    <h2>Nawyki</h2>
+    <div class="habits">
+      <template x-for="h in activeHabits()" :key="h.id">
+        <div class="habit-row">
+          <span class="hi" x-text="h.icon"></span>
+          <span class="hn" x-text="h.name"></span>
+          <button class="hb" :class="{ on: habitState(h.id) === 'min' }" @click="setHabit(h.id, 'min')">min</button>
+          <button class="hb" :class="{ on: habitState(h.id) === 'done' }" @click="setHabit(h.id, 'done')">✓</button>
+        </div>
+      </template>
+    </div>
+
+    <button class="sos" @click="tab = 'burza'">🌪️ Burza teraz</button>
+  </section>
+
+  <!-- BURZA -->
+  <section x-show="tab === 'burza'">
+    <h1>Co się dzieje?</h1>
+    <div class="wchips">
+      <template x-for="w in WEATHERS" :key="w.id">
+        <button class="chip" :class="{ on: sosWeather === w.id }" @click="sosWeather = w.id">
+          <span x-text="w.icon"></span> <span x-text="w.label"></span>
+        </button>
+      </template>
+    </div>
+
+    <template x-if="sosWeather">
+      <div>
+        <h2>Na tę pogodę</h2>
+        <div class="cards">
+          <template x-for="k in sosList().rec" :key="k">
+            <button class="card" @click="start('exercise', k)">
+              <span class="ci" x-text="EXERCISES[k].icon"></span>
+              <span class="ct"><strong x-text="EXERCISES[k].title"></strong>
+                <small x-text="`${EXERCISES[k].desc} · ${EXERCISES[k].mins} min`"></small></span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <h2 x-text="sosWeather ? 'Inne' : 'Wszystkie ćwiczenia'"></h2>
+    <div class="cards">
+      <template x-for="k in (sosWeather ? sosList().rest : Object.keys(EXERCISES))" :key="k">
+        <button class="card small" @click="start('exercise', k)">
+          <span class="ci" x-text="EXERCISES[k].icon"></span>
+          <span class="ct"><strong x-text="EXERCISES[k].title"></strong>
+            <small x-text="`${EXERCISES[k].mins} min`"></small></span>
+        </button>
+      </template>
+    </div>
+
+    <div class="crisis">
+      <strong>Gdy jest naprawdę źle</strong>
+      <p>Ta aplikacja nie zastąpi rozmowy z człowiekiem. Możesz zadzwonić, bezpłatnie:</p>
+      <a href="tel:116123">116 123 · telefon zaufania dla dorosłych</a>
+      <a href="tel:800702222">800 70 2222 · Centrum Wsparcia, całą dobę</a>
+      <a href="tel:112">112 · zagrożenie życia</a>
+    </div>
+  </section>
+
+  <!-- NAWYKI -->
+  <section x-show="tab === 'nawyki'">
+    <h1>Nawyki</h1>
+    <p class="muted">Liczy się to, co zależało od Ciebie. Wersja minimum też się liczy. Pominięty dzień to informacja, nie porażka.</p>
+
+    <div class="habit-list">
+      <template x-for="h in activeHabits()" :key="h.id">
+        <button class="habit-card" @click="editHabit(h)">
+          <div class="hc-top">
+            <span class="hi" x-text="h.icon"></span>
+            <span class="hn"><strong x-text="h.name"></strong><small x-text="'Minimum: ' + (h.min || '—')"></small></span>
+            <span class="hw" x-text="`${habitWeek(h.id)}/7`"></span>
+          </div>
+          <div class="dots">
+            <template x-for="k in lastDays(14)" :key="k">
+              <span class="dot" :class="habitState(h.id, k) || ''" :title="k"></span>
+            </template>
+          </div>
+        </button>
+      </template>
+    </div>
+    <button class="secondary" @click="newHabit()">+ Dodaj nawyk</button>
+
+    <template x-if="habitForm">
+      <div class="sheet" @click.self="habitForm = null">
+        <div class="sheet-body">
+          <h2 x-text="habitForm.id ? 'Edytuj nawyk' : 'Nowy nawyk'"></h2>
+          <label>Ikona <input type="text" maxlength="4" x-model="habitForm.icon" class="icon-in" /></label>
+          <label>Nazwa <input type="text" x-model="habitForm.name" placeholder="np. Medytacja" /></label>
+          <label>Wersja minimum <input type="text" x-model="habitForm.min" placeholder="np. 3 oddechy" /></label>
+          <button class="primary" @click="saveHabit()">Zapisz</button>
+          <button class="link danger" x-show="habitForm.id" @click="archiveHabit()">Usuń z listy (historia zostaje)</button>
+        </div>
+      </div>
+    </template>
+  </section>
+
+  <!-- KLIMAT -->
+  <section x-show="tab === 'klimat'" x-data="{ c: null, f: null, x: null }" x-effect="if (tab === 'klimat') { c = climate(); f = forecastStats(); x = sosStats() }">
+    <h1>Klimat</h1>
+
+    <div class="cal">
+      <template x-for="d in ['pn','wt','śr','cz','pt','sb','nd']"><span class="cal-h" x-text="d"></span></template>
+      <template x-for="cell in calendar()" :key="cell.key">
+        <span class="cal-c" :class="{ future: cell.future, today: cell.key === today }">
+          <span x-text="cell.w ? weather(cell.w).icon : cell.num"></span>
+        </span>
+      </template>
+    </div>
+
+    <template x-if="c && c.logged">
+      <div>
+        <h2>Ostatnie 30 dni</h2>
+        <div class="bars">
+          <template x-for="w in WEATHERS" :key="w.id">
+            <div class="bar-row">
+              <span x-text="w.icon"></span>
+              <div class="bar-track"><div class="bar-fill" :class="'w-' + w.id" :style="`width:${(c.counts[w.id] / c.max) * 100}%`"></div></div>
+              <span class="muted" x-text="c.counts[w.id]"></span>
+            </div>
+          </template>
+        </div>
+        <template x-for="p in c.patterns" :key="p.w.id">
+          <p class="insight" x-text="`${p.w.icon} ${p.w.label} najczęściej ${p.day} (${p.n}×).`"></p>
+        </template>
+      </div>
+    </template>
+
+    <template x-if="f && f.n">
+      <div class="stat">
+        <h2>Poranne prognozy</h2>
+        <p>Z <span x-text="f.n"></span> czarnych scenariuszy nie sprawdziło się <strong x-text="`${f.notHappened} (${f.notPct}%)`"></strong>.</p>
+        <p x-show="f.hitN"><span>Gdy się sprawdziły, w </span><strong x-text="f.lighterPct + '%'"></strong><span> przypadków było lżej niż w wyobraźni.</span></p>
+      </div>
+    </template>
+
+    <template x-if="x && x.n">
+      <div class="stat">
+        <h2>Burze</h2>
+        <p><span x-text="x.n"></span> ćwiczeń. Średnia zmiana napięcia: <strong x-text="x.avg"></strong> pkt.</p>
+      </div>
+    </template>
+
+    <template x-if="c && !c.logged">
+      <p class="muted">Tu pojawi się mapa Twojej pogody. Zacznij od porannego check-inu.</p>
+    </template>
+
+    <h2 x-show="journal().length">Dziennik</h2>
+    <div class="journal">
+      <template x-for="e in journal()" :key="e.id">
+        <div class="j-item">
+          <button class="j-head" @click="openEntry = openEntry === e.id ? null : e.id">
+            <span x-text="entryDef(e).icon"></span>
+            <span class="j-title" x-text="entryDef(e).title"></span>
+            <span class="muted" x-text="fmtDate(e.ts)"></span>
+          </button>
+          <template x-if="openEntry === e.id">
+            <dl class="summary">
+              <template x-for="r in summary(entryDef(e), e.answers)" :key="r.label">
+                <div><dt x-text="r.label"></dt><dd x-text="r.value"></dd></div>
+              </template>
+            </dl>
+          </template>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- WIĘCEJ -->
+  <section x-show="tab === 'wiecej'">
+    <h1>Więcej</h1>
+
+    <h2>Kopia danych</h2>
+    <p class="muted">Wszystko jest zapisane tylko na tym urządzeniu. Eksportuj co jakiś czas do Plików lub iCloud. Tak też przeniesiesz dane między iPhone'em a iPadem.</p>
+    <button class="secondary" @click="exportData()">⬆️ Eksportuj kopię</button>
+    <label class="secondary file-btn">⬇️ Wczytaj kopię
+      <input type="file" accept="application/json,.json" @change="pickImport($event)" hidden />
+    </label>
+    <p class="insight" x-show="importMsg" x-text="importMsg"></p>
+    <button class="primary" x-show="pendingImport" @click="confirmImport()">Zastąp dane</button>
+
+    <h2>Przypomnienia</h2>
+    <p class="muted">Skróty → Automatyzacja → Pora dnia (np. 7:30) → Otwórz aplikację → Stormcalmer. Druga automatyzacja na wieczór.</p>
+
+    <div class="crisis">
+      <strong>Gdy jest naprawdę źle</strong>
+      <a href="tel:116123">116 123 · telefon zaufania dla dorosłych</a>
+      <a href="tel:800702222">800 70 2222 · Centrum Wsparcia, całą dobę</a>
+      <a href="tel:112">112 · zagrożenie życia</a>
+    </div>
+
+    <p class="muted small">Cytaty: Marek Aureliusz, Seneka, Epiktet. Przekład własny, swobodny. Ćwiczenia oparte na technikach CBT i praktykach stoickich. To narzędzie samopomocy, a nie terapia.</p>
+  </section>
+
+  <nav class="tabbar">
+    <button :class="{ on: tab === 'dzis' }" @click="tab = 'dzis'"><span>🌤️</span>Dziś</button>
+    <button :class="{ on: tab === 'burza' }" @click="tab = 'burza'"><span>🌪️</span>Burza</button>
+    <button :class="{ on: tab === 'nawyki' }" @click="tab = 'nawyki'"><span>🌱</span>Nawyki</button>
+    <button :class="{ on: tab === 'klimat' }" @click="tab = 'klimat'"><span>🗺️</span>Klimat</button>
+    <button :class="{ on: tab === 'wiecej' }" @click="tab = 'wiecej'"><span>⋯</span>Więcej</button>
+  </nav>
+</main>
+</template>
+
+</body>
+</html>
