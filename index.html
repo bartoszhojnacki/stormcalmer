@@ -103,22 +103,26 @@
           </div>
         </template>
 
-        <template x-if="st.type === 'text'">
-          <input type="text" class="field" x-model="ans[st.id]" @keydown.enter="next()" />
-        </template>
-        <template x-if="st.type === 'textarea' || st.type === 'lines'">
-          <textarea class="field lined" rows="3" x-model="ans[st.id]"></textarea>
-        </template>
-
+        <!-- najpierw wybór, pisanie tylko na życzenie -->
         <template x-if="chipsFor().length">
           <div class="chips">
             <template x-for="c in chipsFor()" :key="c.t">
-              <button class="chip" :class="{ on: chipOn(c.t), mine: c.mine, starter: isStarter(c.t) }"
-                      @click="addChip(c.t, $el)" x-text="c.t"></button>
+              <button class="chip" :class="{ on: chipOn(c.t), mine: c.mine, starter: isStarter(c.t), long: longChips() }"
+                      @click="addChip(c.t)" x-text="c.t"></button>
             </template>
           </div>
         </template>
-        <template x-if="isTextStep()">
+        <template x-if="isTextStep() && chipsFor().length && !writeOpen">
+          <button class="text-btn write-open" @click="openWriting()">✎ własnymi słowami</button>
+        </template>
+
+        <template x-if="isTextStep() && writeOpen && st.type === 'text'">
+          <input type="text" class="field" x-model="ans[st.id]" @keydown.enter="next()" />
+        </template>
+        <template x-if="isTextStep() && writeOpen && st.type !== 'text'">
+          <textarea class="field lined" rows="3" x-model="ans[st.id]"></textarea>
+        </template>
+        <template x-if="isTextStep() && writeOpen">
           <p class="dictate">Wolisz mówić? Mikrofon na klawiaturze zamieni głos w tekst.</p>
         </template>
 

@@ -506,16 +506,20 @@ button:disabled { opacity: 0.3; cursor: default; }
 .j-item .summary div { border: 0; padding: 0.4rem 0; }
 
 /* ---------- podpowiedzi do pisania ---------- */
-.chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 1rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 1.2rem; }
 .chips .chip {
-  padding: 0.45rem 0.85rem;
+  padding: 0.65rem 1.05rem;
   border-radius: 999px;
   border: 1px solid var(--hair);
   background: var(--veil);
-  font-size: 0.88rem;
-  color: var(--ink-2);
+  font-size: 0.98rem;
+  color: var(--ink);
   transition: all 0.2s;
 }
+/* długie podpowiedzi (np. myśl zrównoważona) jako pełne wiersze */
+.chips .chip.long { border-radius: 16px; width: 100%; text-align: left; font: 400 1.1rem/1.35 var(--serif); padding: 0.8rem 1rem; }
+.write-open { display: block; margin-top: 0.8rem; }
+.step > .field, .step > textarea.field { margin-top: 1rem; }
 .chips .chip.mine { border-style: dashed; color: var(--ink); }
 .chips .chip.starter { font-style: italic; font-family: var(--serif); font-size: 1rem; }
 .chips .chip.on { background: var(--ink); border-color: var(--ink); color: #1a1d2e; text-shadow: none; }

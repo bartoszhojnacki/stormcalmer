@@ -51,6 +51,7 @@ document.addEventListener("alpine:init", () => {
     pendingImport: null,
     showInstall: false,
     preview: null, // pogoda pokazywana na powitaniu (niebo przechodzi przez wszystkie)
+    writeOpen: false, // pole tekstowe rozwinięte (domyślnie tylko wybór)
 
     WEATHERS, EXERCISES, RITUALS, HABIT_SUGGESTIONS, BASELINE_ITEMS,
 
@@ -160,6 +161,12 @@ document.addEventListener("alpine:init", () => {
       const st = this.step();
       this.stopPreview();
       if (st.type === "intro") this.startPreview();
+      // pisanie tylko gdy krok nie ma opcji albo wcześniej wpisano coś własnego
+      if (this.isTextStep()) {
+        const opts = this.chipsFor().map((c) => c.t);
+        const parts = this.splitAnswer(this.run.answers[st.id]);
+        this.writeOpen = !opts.length || parts.some((p) => !opts.includes(p));
+      }
       if (st.type === "scale" && this.run.answers[st.id] == null) this.run.answers[st.id] = 5;
       if (st.type === "timer") this.startTimer(st.seconds);
       window.scrollTo(0, 0);
@@ -252,7 +259,7 @@ document.addEventListener("alpine:init", () => {
       } else values = [];
       const out = [];
       for (const v of values) {
-        const lines = this.st.type === "lines" ? this.lines(v) : [v];
+        const lines = this.splitAnswer(v);
         for (const x of lines) {
           const t = (x || "").trim();
           if (t && t.length <= 40 && !out.includes(t)) out.push(t);
@@ -263,39 +270,55 @@ document.addEventListener("alpine:init", () => {
     },
     chipsFor() {
       if (!this.run || !this.isTextStep()) return [];
-      const base = CHIPS[`${this.run.key}.${this.st.id}`] || [];
+      const base = resolve(CHIPS[`${this.run.key}.${this.st.id}`], this.run.answers) || [];
       const recent = this.recentFor(this.run.key, this.st.id).filter((r) => !base.includes(r));
       return [...recent.map((t) => ({ t, mine: true })), ...base.map((t) => ({ t, mine: false }))];
+    },
+    // Łączenie kilku wybranych opcji: w liście nowa linia, gdzie indziej „ · ”
+    // (przecinek nie, bo same opcje często go zawierają)
+    chipSep() {
+      return this.st.type === "lines" ? "\n" : " · ";
+    },
+    splitAnswer(v) {
+      if (typeof v !== "string") return [];
+      return v.split(this.st.type === "lines" ? "\n" : " · ").map((x) => x.trim()).filter(Boolean);
+    },
+    longChips() {
+      return this.chipsFor().some((c) => c.t.length > 36);
     },
     isStarter(t) {
       return t.endsWith("…");
     },
     chipOn(t) {
-      const v = this.ans[this.st.id] || "";
-      return !this.isStarter(t) && v.includes(t);
+      return !this.isStarter(t) && this.splitAnswer(this.ans[this.st.id]).includes(t);
     },
-    addChip(t, el) {
+    addChip(t) {
       const id = this.st.id;
       const cur = (this.ans[id] || "").trimEnd();
       const starter = this.isStarter(t);
       const text = starter ? t.slice(0, -1) + " " : t;
-      if (!starter && cur.includes(t)) {
+      if (!starter && this.chipOn(t)) {
         // drugie stuknięcie usuwa podpowiedź
-        this.run.answers[id] = this.st.type === "lines"
-          ? this.lines(cur).filter((x) => x !== t).join("\n")
-          : cur.split(/,\s*/).filter((x) => x.trim() !== t).join(", ");
+        this.run.answers[id] = this.splitAnswer(cur).filter((x) => x !== t).join(this.chipSep());
         return;
       }
-      const sep = !cur ? "" : this.st.type === "lines" ? "\n" : starter ? " " : ", ";
+      const sep = !cur ? "" : starter ? " " : this.chipSep();
       this.run.answers[id] = cur + sep + text;
       if (starter) {
         // początek zdania: kursor na końcu, klawiatura gotowa do dokończenia
+        this.writeOpen = true;
         this.$nextTick(() => {
-          const f = el.closest(".step").querySelector(".field");
+          const f = document.querySelector(".run .step .field");
           f?.focus();
           f?.setSelectionRange(f.value.length, f.value.length);
         });
       }
+    },
+
+    openWriting() {
+      this.writeOpen = true;
+      // przycisk znika razem z szablonem, więc pole szukamy w całym kroku
+      this.$nextTick(() => document.querySelector(".run .step .field")?.focus());
     },
 
     // ---------- kroki onboardingu ----------
