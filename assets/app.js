@@ -459,7 +459,7 @@ document.addEventListener("alpine:init", () => {
     },
     rhythmHint() {
       const r = this.s.profile?.rhythm || this.run?.answers.rhythm || { morning: "07:30", evening: "21:30" };
-      return `Skróty → Automatyzacja → Nowa → Pora dnia: ${r.morning} → Otwórz aplikację → Stormcalmer. Druga taka sama na ${r.evening}.`;
+      return `Skróty → Automatyzacja → Nowa automatyzacja → Pora dnia: ${r.morning}, Uruchom natychmiast → czynność „Pokaż powiadomienie”. Druga taka sama na ${r.evening}. iOS nie pozwala Skrótom otworzyć aplikacji z ekranu początkowego, więc po powiadomieniu stuknij ikonę (najwygodniej w Docku).`;
     },
     progressRows() {
       const c = this.s.checks || [];

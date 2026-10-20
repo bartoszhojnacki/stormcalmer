@@ -247,13 +247,14 @@
             <label class="time-row"><span class="row-title">Poranek</span><input type="time" class="field time" x-model="rh.morning" /></label>
             <label class="time-row"><span class="row-title">Wieczór</span><input type="time" class="field time" x-model="rh.evening" /></label>
             <h2 class="label">Przypomnienie</h2>
-            <p class="lede">Aplikacja sama nie wyśle powiadomienia, ale iPhone może ją otworzyć o stałej porze:</p>
+            <p class="lede">iOS nie pozwala Skrótom otworzyć aplikacji z ekranu początkowego, ale może o niej przypomnieć:</p>
             <ol class="steps-list">
-              <li>Otwórz <b>Skróty</b> → <b>Automatyzacja</b> → <b>Nowa automatyzacja</b>.</li>
-              <li><b>Pora dnia</b>: <span x-text="rh.morning"></span>, codziennie, <b>uruchom natychmiast</b>.</li>
-              <li>Akcja <b>Otwórz aplikację</b> → Stormcalmer.</li>
-              <li>To samo na <span x-text="rh.evening"></span>.</li>
+              <li>Otwórz <b>Skróty</b> → <b>Automatyzacja</b> → <b>Nowa automatyzacja</b> → <b>Pora dnia</b>.</li>
+              <li><span x-text="rh.morning"></span>, codziennie, zaznacz <b>Uruchom natychmiast</b>.</li>
+              <li>Nowy pusty skrót → czynność <b>Pokaż powiadomienie</b>, treść: „Czas na poranek”.</li>
+              <li>To samo na <span x-text="rh.evening"></span> z treścią „Czas na wieczór”.</li>
             </ol>
+            <p class="lede small-note">Powiadomienie otwiera Skróty, nie aplikację, więc po nim stuknij ikonę Stormcalmera. Najwygodniej trzymać ją w Docku.</p>
           </div>
         </template>
 

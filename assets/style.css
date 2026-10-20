@@ -505,6 +505,8 @@ button:disabled { opacity: 0.3; cursor: default; }
 .j-item .summary { margin: 0 0 0.8rem; border: 0; }
 .j-item .summary div { border: 0; padding: 0.4rem 0; }
 
+.small-note { margin-top: 0.9rem; font-size: 0.85rem; color: var(--ink-3); }
+
 /* ---------- podpowiedzi do pisania ---------- */
 .chips { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 1.2rem; }
 .chips .chip {

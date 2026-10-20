@@ -23,7 +23,7 @@ Po większej zmianie podbij `CACHE` w `sw.js` (np. `storm-v4` → `storm-v5`), �
 2. Udostępnij → **Do ekranu początkowego**.
 3. iPhone i iPad mają osobne dane. Przenosisz je przez Eksport → Pliki/iCloud → Wczytaj kopię.
 
-**Przypomnienia:** Skróty → Automatyzacja → Pora dnia → Otwórz aplikację → Stormcalmer (rano i wieczorem).
+**Przypomnienia:** Skróty → Automatyzacja → Pora dnia → czynność „Pokaż powiadomienie” (rano i wieczorem). Aplikacji z ekranu początkowego nie ma na liście „Otwórz aplikację”, a „Otwórz URL” otwiera kartę Safari z osobnymi danymi, więc po powiadomieniu otwiera się aplikację z ikony.
 
 ## Edycja treści
 
