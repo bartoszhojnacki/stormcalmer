@@ -238,6 +238,66 @@ document.addEventListener("alpine:init", () => {
       this.preview = null;
     },
 
+    // ---------- podpowiedzi do pisania ----------
+    isTextStep() {
+      return ["text", "textarea", "lines"].includes(this.st.type);
+    },
+    // Ostatnie własne odpowiedzi z tego samego pola (najnowsze pierwsze, krótkie, bez powtórek)
+    recentFor(key, id) {
+      let values;
+      if (this.run?.kind === "exercise") {
+        values = this.s.entries.filter((e) => e.exercise === key).map((e) => e.answers[id]);
+      } else if (this.run?.kind === "ritual") {
+        values = Object.keys(this.s.days).sort().reverse().map((k) => this.s.days[k][id]);
+      } else values = [];
+      const out = [];
+      for (const v of values) {
+        const lines = this.st.type === "lines" ? this.lines(v) : [v];
+        for (const x of lines) {
+          const t = (x || "").trim();
+          if (t && t.length <= 40 && !out.includes(t)) out.push(t);
+        }
+        if (out.length >= 3) break;
+      }
+      return out.slice(0, 3);
+    },
+    chipsFor() {
+      if (!this.run || !this.isTextStep()) return [];
+      const base = CHIPS[`${this.run.key}.${this.st.id}`] || [];
+      const recent = this.recentFor(this.run.key, this.st.id).filter((r) => !base.includes(r));
+      return [...recent.map((t) => ({ t, mine: true })), ...base.map((t) => ({ t, mine: false }))];
+    },
+    isStarter(t) {
+      return t.endsWith("…");
+    },
+    chipOn(t) {
+      const v = this.ans[this.st.id] || "";
+      return !this.isStarter(t) && v.includes(t);
+    },
+    addChip(t, el) {
+      const id = this.st.id;
+      const cur = (this.ans[id] || "").trimEnd();
+      const starter = this.isStarter(t);
+      const text = starter ? t.slice(0, -1) + " " : t;
+      if (!starter && cur.includes(t)) {
+        // drugie stuknięcie usuwa podpowiedź
+        this.run.answers[id] = this.st.type === "lines"
+          ? this.lines(cur).filter((x) => x !== t).join("\n")
+          : cur.split(/,\s*/).filter((x) => x.trim() !== t).join(", ");
+        return;
+      }
+      const sep = !cur ? "" : this.st.type === "lines" ? "\n" : starter ? " " : ", ";
+      this.run.answers[id] = cur + sep + text;
+      if (starter) {
+        // początek zdania: kursor na końcu, klawiatura gotowa do dokończenia
+        this.$nextTick(() => {
+          const f = el.closest(".step").querySelector(".field");
+          f?.focus();
+          f?.setSelectionRange(f.value.length, f.value.length);
+        });
+      }
+    },
+
     // ---------- kroki onboardingu ----------
     toggleStorm(id) {
       const cur = this.run.answers.storms;

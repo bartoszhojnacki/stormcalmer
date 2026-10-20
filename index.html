@@ -107,7 +107,19 @@
           <input type="text" class="field" x-model="ans[st.id]" @keydown.enter="next()" />
         </template>
         <template x-if="st.type === 'textarea' || st.type === 'lines'">
-          <textarea class="field lined" rows="4" x-model="ans[st.id]"></textarea>
+          <textarea class="field lined" rows="3" x-model="ans[st.id]"></textarea>
+        </template>
+
+        <template x-if="chipsFor().length">
+          <div class="chips">
+            <template x-for="c in chipsFor()" :key="c.t">
+              <button class="chip" :class="{ on: chipOn(c.t), mine: c.mine, starter: isStarter(c.t) }"
+                      @click="addChip(c.t, $el)" x-text="c.t"></button>
+            </template>
+          </div>
+        </template>
+        <template x-if="isTextStep()">
+          <p class="dictate">Wolisz mówić? Mikrofon na klawiaturze zamieni głos w tekst.</p>
         </template>
 
         <template x-if="st.type === 'scale'">
@@ -272,7 +284,7 @@
         </template>
 
         <button class="cta" :disabled="!canNext()" @click="next()">
-          <span x-text="run?.i === visibleSteps().length - 1 ? 'Zakończ' : 'Dalej'"></span>
+          <span x-text="isTextStep() && !(ans[st.id] || '').trim() ? 'Pomiń' : (run?.i === visibleSteps().length - 1 ? 'Zakończ' : 'Dalej')"></span>
           <svg class="ic"><use href="#i-arrow"/></svg>
         </button>
       </section>

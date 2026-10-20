@@ -1,6 +1,6 @@
 // Najpierw sieć (z pominięciem cache HTTP przeglądarki), cache tylko gdy offline
 // albo gdy serwer nie odpowie w NETWORK_TIMEOUT. Dzięki temu zmiany widać od razu.
-const CACHE = "storm-v5";
+const CACHE = "storm-v6";
 const NETWORK_TIMEOUT = 3000;
 const ASSETS = [
   "./",

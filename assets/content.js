@@ -249,10 +249,11 @@ const RITUALS = {
     steps: [
       { id: "weather", type: "weather", prompt: "Jaka dziś pogoda w głowie?" },
       { type: "quote" },
-      { id: "forecast", type: "textarea", label: "Prognoza", prompt: "Co dziś może pójść nie tak?",
-        hint: "Premeditatio malorum. Jedno zdanie. Nie po to, żeby się martwić, tylko żeby nic Cię nie zaskoczyło." },
-      { id: "response", type: "textarea", label: "Moja odpowiedź", prompt: "Jak chcesz wtedy zareagować?" },
-      { id: "intention", type: "text", label: "Intencja", prompt: "Jaka cecha ma Cię dziś prowadzić?", hint: "Opcjonalnie. Np. cierpliwość, odwaga, uważność." },
+      { id: "forecast", type: "text", label: "Prognoza", prompt: "Gdzie dziś może zawiać?",
+        hint: "Jedna sytuacja, która może Cię wytrącić. Stuknij albo wpisz słowo." },
+      { id: "response", type: "text", label: "Moja odpowiedź",
+        prompt: (a) => a.forecast ? `Gdy przyjdzie „${a.forecast}”, co zrobisz?` : "Gdy zawieje, co zrobisz?" },
+      { id: "intention", type: "text", label: "Intencja", prompt: "Jedno słowo na dziś?", hint: "Cecha, która ma Cię prowadzić. Można pominąć." },
     ],
   },
   wieczor: {
@@ -342,3 +343,33 @@ const JOURNEY = [
   { id: "j-check1", day: 13, title: "Punkt kontrolny", body: "Dwa tygodnie. Te same trzy pytania co na początku, żeby zobaczyć, co się zmieniło.", go: ["flow", "checkin"], cta: "Odpowiedz · 1 min" },
   { id: "j-check2", day: 29, title: "Miesiąc", body: "Wróćmy do Twojego portu i punktu wyjścia. Co się zmieniło?", go: ["flow", "checkin"], cta: "Odpowiedz · 1 min" },
 ];
+
+// ---------- Podpowiedzi do pól tekstowych ----------
+// Klucz: "<rytuał|ćwiczenie|flow>.<id kroku>". Podpowiedź kończąca się „…” to początek
+// zdania: wstawia się do pola i czeka na dokończenie. Reszta dopisuje się jako gotowa odpowiedź.
+// Do tego aplikacja dokłada 3 ostatnie własne odpowiedzi z tego samego pola.
+const CHIPS = {
+  "poranek.forecast": ["trudna rozmowa", "za dużo zadań", "zmęczenie", "spóźnienie", "konkretny człowiek", "niepewna sprawa"],
+  "poranek.response": ["pauza, zanim odpowiem", "zrobię swoje, wynik nie jest mój", "zapytam, zamiast zakładać", "jedna rzecz naraz", "odpuszczę, co nie moje"],
+  "poranek.intention": ["cierpliwość", "odwaga", "spokój", "uważność", "życzliwość", "wytrwałość"],
+  "wieczor.bad": ["nerwy", "odkładanie", "za dużo telefonu", "zmęczenie", "nic szczególnego"],
+  "wieczor.good": ["trudna rzecz zrobiona", "cierpliwość", "ruch", "dobra rozmowa", "odpoczynek"],
+  "wieczor.missed": ["snu", "ruchu", "przerwy", "rozmowy", "skupienia", "Jutro…"],
+
+  "kontrola.worries": ["praca", "zdrowie", "pieniądze", "relacje", "czyjaś opinia", "przyszłość"],
+  "kontrola.action": ["Napiszę do…", "Zrobię pierwsze 10 minut…", "Zapytam…", "Przygotuję…"],
+  "zapis.situation": ["W pracy…", "W domu…", "Ktoś powiedział…", "Dostałem wiadomość…"],
+  "zapis.emotion": ["lęk", "złość", "wstyd", "smutek", "frustracja", "bezradność", "zazdrość"],
+  "zapis.thought": ["A co jeśli…", "Na pewno…", "Znowu…", "Nie dam rady…", "Oni myślą, że…"],
+  "zapis.evidenceFor": ["Faktem jest, że…", "Raz już…"],
+  "zapis.evidenceAgainst": ["Wcześniej udało mi się…", "Przyjaciel powiedziałby…", "Nie wiem na pewno, czy…"],
+  "zapis.alternative": ["Możliwe, że…", "Nawet jeśli…", "Zrobię, co mogę, i…"],
+  "pauza.trigger": ["Ktoś powiedział…", "Ktoś zrobił…", "Znowu…"],
+  "pauza.judgement": ["lekceważy mnie", "to niesprawiedliwe", "powinien był…", "zawsze tak jest", "nie szanują mnie"],
+  "pauza.response": ["odpowiem jutro", "nic nie robię", "powiem spokojnie, czego potrzebuję", "zapytam, co miał na myśli", "odpuszczam"],
+  "krok.step": ["Otworzę…", "Napiszę jedno zdanie…", "Zrobię listę trzech rzeczy", "Ustawię minutnik na 2 minuty"],
+  "dobre.good": ["kawa", "słońce", "rozmowa", "ruch", "coś mi wyszło", "dobre jedzenie", "cisza"],
+  "dobre.act": ["wiadomość do kogoś", "spacer", "herbata dla siebie", "komuś podziękować"],
+  "zgory.matters": ["moje zachowanie", "zdrowie", "bliscy", "to, co zrobię jutro"],
+  "onboarding.goal": ["mniej nerwów", "spokojniejsze wieczory", "mniej odkładania", "więcej energii", "lepszy sen"],
+};

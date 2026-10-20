@@ -356,7 +356,7 @@ button:disabled { opacity: 0.3; cursor: default; }
   background-image: linear-gradient(transparent calc(2rem - 1px), var(--hair) calc(2rem - 1px));
   background-size: 100% 2rem;
   background-attachment: local;
-  min-height: 8.6rem;
+  min-height: 6.6rem;
 }
 .sheet-body .label { display: block; margin: 1.2rem 0 0; }
 .sheet-body .field { margin-top: 0.4rem; text-transform: none; letter-spacing: 0; }
@@ -504,6 +504,22 @@ button:disabled { opacity: 0.3; cursor: default; }
 
 .j-item .summary { margin: 0 0 0.8rem; border: 0; }
 .j-item .summary div { border: 0; padding: 0.4rem 0; }
+
+/* ---------- podpowiedzi do pisania ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 1rem; }
+.chips .chip {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: var(--veil);
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  transition: all 0.2s;
+}
+.chips .chip.mine { border-style: dashed; color: var(--ink); }
+.chips .chip.starter { font-style: italic; font-family: var(--serif); font-size: 1rem; }
+.chips .chip.on { background: var(--ink); border-color: var(--ink); color: #1a1d2e; text-shadow: none; }
+.dictate { margin: 0.9rem 0 0; font-size: 0.78rem; color: var(--ink-3); }
 
 /* ---------- onboarding ---------- */
 .install { padding-top: calc(var(--safe-t) + 18vh); }
