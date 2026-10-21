@@ -31,6 +31,8 @@
     <symbol id="i-nawyki" viewBox="0 0 24 24"><path d="M12 21v-9M12 12c0-4.5 3-7 7.5-7 0 4.5-3 7-7.5 7zM12 14.5c0-3.5-2.2-5.5-6.5-5.5 0 3.5 2.2 5.5 6.5 5.5z"/></symbol>
     <symbol id="i-klimat" viewBox="0 0 24 24"><path d="M2.5 9c3-2.4 6.3 2.4 9.5 0s6.5-2.4 9.5 0M2.5 14c3-2.4 6.3 2.4 9.5 0s6.5-2.4 9.5 0M2.5 19c3-2.4 6.3 2.4 9.5 0s6.5-2.4 9.5 0"/></symbol>
     <symbol id="i-wiecej" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="18.5" cy="12" r=".8"/></symbol>
+    <symbol id="i-ksiega" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5zM12 6.5V19"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
@@ -112,8 +114,11 @@
             </template>
           </div>
         </template>
-        <template x-if="isTextStep() && chipsFor().length && !writeOpen">
-          <button class="text-btn write-open" @click="openWriting()">✎ własnymi słowami</button>
+        <template x-if="isTextStep() && chipsFor().length">
+          <div class="chip-tools">
+            <button class="text-btn" x-show="!writeOpen" @click="openWriting()">✎ własnymi słowami</button>
+            <button class="text-btn" x-show="hasPool()" @click="chipSeed++">↻ inne</button>
+          </div>
         </template>
 
         <template x-if="isTextStep() && writeOpen && st.type === 'text'">
@@ -258,6 +263,27 @@
           </div>
         </template>
 
+        <template x-if="st.type === 'defuse'">
+          <div class="defuse">
+            <template x-for="(line, i) in defuseLines().slice(0, (ans.defuse || 0) + 1)" :key="i">
+              <p class="defuse-line" :class="{ now: i === (ans.defuse || 0) }" :style="`--d:${(ans.defuse || 0) - i}`" x-text="line"></p>
+            </template>
+            <button class="text-btn" x-show="(ans.defuse || 0) < 3" @click="defuseMore()">odsuń →</button>
+          </div>
+        </template>
+
+        <template x-if="st.type === 'stream'">
+          <div class="stream">
+            <button class="stream-sea" @click="launchLeaf()" aria-label="Połóż myśl na fali">
+              <template x-for="l in leaves" :key="l.id">
+                <span class="leaf" :style="`top:${l.top}%`" x-text="l.text"></span>
+              </template>
+              <span class="stream-hint" x-show="!leaves.length">stuknij, gdy myśl wróci</span>
+            </button>
+            <p class="legend center" x-text="ans.returns ? `odpłynęła ${ans.returns}×` : ' '"></p>
+          </div>
+        </template>
+
         <template x-if="st.type === 'weather'">
           <div class="swatches">
             <template x-for="w in WEATHERS" :key="w.id">
@@ -329,9 +355,9 @@
       </template>
     </header>
 
-    <figure class="quote">
+    <figure class="quote" :class="{ own: todayQuote().own }">
       <blockquote x-text="todayQuote().t"></blockquote>
-      <figcaption><span x-text="todayQuote().a"></span> · <span x-text="todayQuote().s"></span></figcaption>
+      <figcaption x-text="quoteCaption(todayQuote()) + (todayQuote().own ? ' · z Twojej księgi' : '')"></figcaption>
     </figure>
 
     <template x-if="showPort()">
@@ -478,6 +504,62 @@
     </template>
   </section>
 
+  <!-- KSIĘGA -->
+  <section x-show="tab === 'ksiega'">
+    <h1 class="title">Księga</h1>
+    <p class="lede">Fragmenty z lektur, które warto mieć pod ręką. Co trzeci dzień jeden z nich zostanie cytatem dnia.</p>
+    <button class="storm-btn add-note" @click="newNote()"><svg class="ic"><use href="#i-camera"/></svg><span>Dodaj fragment</span></button>
+
+    <div class="notes">
+      <template x-for="n in notes()" :key="n.id">
+        <article class="note" @click="editNote(n)">
+          <template x-if="noteImg(n)">
+            <img class="note-img" :src="noteImg(n)" alt="" />
+          </template>
+          <p class="note-text" x-show="n.text" x-text="n.text"></p>
+          <p class="note-src" x-show="n.source" x-text="n.source"></p>
+        </article>
+      </template>
+    </div>
+    <p class="lede" x-show="!notes().length">Pusto. Następnym razem, gdy jakieś zdanie w książce Cię zatrzyma, zrób mu zdjęcie.</p>
+
+    <template x-if="noteForm">
+      <div class="sheet" @click.self="noteForm = null">
+        <div class="sheet-body tall">
+          <h2 class="title sm" x-text="noteForm.id ? 'Fragment' : 'Nowy fragment'"></h2>
+
+          <label class="photo-pick">
+            <template x-if="noteForm.preview"><img :src="noteForm.preview" alt="" /></template>
+            <span class="photo-empty" x-show="!noteForm.preview"><svg class="ic"><use href="#i-camera"/></svg> zdjęcie strony (opcjonalnie)</span>
+            <input type="file" accept="image/*" @change="pickPhoto($event)" hidden />
+          </label>
+
+          <label class="label">Tekst
+            <textarea class="field lined" rows="4" x-model="noteForm.text"></textarea>
+          </label>
+          <p class="small-note">Stuknij pole i wybierz <b>Skanuj tekst</b>: iPad wczyta tekst prosto z aparatu, bez przepisywania. Tekst ze zdjęcia możesz też zaznaczyć, przytrzymując go palcem.</p>
+
+          <label class="label">Źródło<input type="text" class="field" x-model="noteForm.source" placeholder="autor, tytuł" /></label>
+          <div class="chips" x-show="recentSources().length">
+            <template x-for="src in recentSources()" :key="src">
+              <button class="chip" :class="{ on: noteForm.source === src }" @click="noteForm.source = src" x-text="src"></button>
+            </template>
+          </div>
+
+          <span class="label block">Pomaga przy</span>
+          <div class="chips">
+            <template x-for="w in WEATHERS" :key="w.id">
+              <button class="chip" :class="{ on: noteForm.weathers.includes(w.id) }" @click="toggleNoteWeather(w.id)" x-text="w.label"></button>
+            </template>
+          </div>
+
+          <button class="cta" @click="saveNote()"><span>Zapisz</span></button>
+          <button class="text-btn danger" x-show="noteForm.id" @click="deleteNote()">usuń fragment</button>
+        </div>
+      </div>
+    </template>
+  </section>
+
   <!-- KLIMAT -->
   <section x-show="tab === 'klimat'" x-data="{ c: null, f: null, x: null }" x-effect="if (tab === 'klimat') { c = climate(); f = forecastStats(); x = sosStats() }">
     <h1 class="title">Klimat</h1>
@@ -604,6 +686,7 @@
     <button :class="{ on: tab === 'dzis' }" @click="tab = 'dzis'"><svg class="ic"><use href="#i-dzis"/></svg><span>Dziś</span></button>
     <button :class="{ on: tab === 'burza' }" @click="tab = 'burza'"><svg class="ic"><use href="#i-wichura"/></svg><span>Burza</span></button>
     <button :class="{ on: tab === 'nawyki' }" @click="tab = 'nawyki'"><svg class="ic"><use href="#i-nawyki"/></svg><span>Nawyki</span></button>
+    <button :class="{ on: tab === 'ksiega' }" @click="tab = 'ksiega'"><svg class="ic"><use href="#i-ksiega"/></svg><span>Księga</span></button>
     <button :class="{ on: tab === 'klimat' }" @click="tab = 'klimat'"><svg class="ic"><use href="#i-klimat"/></svg><span>Klimat</span></button>
     <button :class="{ on: tab === 'wiecej' }" @click="tab = 'wiecej'"><svg class="ic"><use href="#i-wiecej"/></svg><span>Więcej</span></button>
   </nav>

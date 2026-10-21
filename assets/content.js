@@ -20,12 +20,16 @@ const DEFAULT_SKY = { id: "default", sky: ["#111930", "#29345c", "#566592"], sea
 const RECOMMEND = {
   pogodnie: ["zgory", "kontrola"],
   mgla:     ["krok", "kontrola"],
-  wichura:  ["kontrola", "zgory", "zapis"],
+  wichura:  ["natret", "kontrola", "zgory", "zapis"],
   burza:    ["pauza", "zapis", "kontrola"],
   deszcz:   ["dobre", "zapis", "zgory"],
 };
 
 const QUOTES = [
+  { t: "Do każdego przykrego wyobrażenia mów od razu: jesteś tylko wrażeniem, a wcale nie tym, czym się wydajesz.", a: "Epiktet", s: "Encheiridion 1", w: ["wichura"],
+    q: "Której myśli dziś dajesz zgodę, choć jest tylko wrażeniem?" },
+  { t: "Wymaż wyobrażenie. Powstrzymaj szarpanie. Ogranicz się do chwili obecnej.", a: "Marek Aureliusz", s: "Rozmyślania VII.29", w: ["wichura", "burza"],
+    q: "Co jest prawdą w tej chwili, poza tym, co podsuwa wyobraźnia?" },
   { t: "Jedne rzeczy zależą od nas, inne nie.", a: "Epiktet", s: "Encheiridion 1", w: ["wichura", "burza", "pogodnie"],
     q: "Co z tego, co dziś zajmuje Twoją głowę, naprawdę zależy od Ciebie?" },
   { t: "Ludzi niepokoją nie rzeczy, lecz ich mniemania o rzeczach.", a: "Epiktet", s: "Encheiridion 5", w: ["wichura", "burza", "deszcz"],
@@ -110,6 +114,18 @@ const DISTORTIONS = [
   { id: "filtr",           label: "Negatywny filtr",          d: "Widzę tylko to, co poszło źle." },
   { id: "emocje",          label: "Rozumowanie emocjonalne",  d: "Czuję to, więc to prawda." },
   { id: "dyskwalifikacja", label: "Pomijanie pozytywów",      d: "Dobre rzeczy „się nie liczą”." },
+];
+
+// Rodzaje natrętnych myśli: `s` to treść do zdystansowania, `tag` to tytuł „historii”.
+const INTRUSION_THEMES = [
+  { v: "katastrofa", label: "że stanie się coś złego",            s: "stanie się coś złego",          tag: "katastrofa" },
+  { v: "czyn",       label: "że zrobię coś złego lub głupiego",     s: "zrobię coś złego",              tag: "zły czyn" },
+  { v: "zdrowie",    label: "o zdrowiu",                           s: "coś jest nie tak z moim zdrowiem", tag: "choroba" },
+  { v: "bliscy",     label: "o bliskich",                          s: "coś stanie się bliskim",        tag: "bliscy" },
+  { v: "watpliwosc", label: "wątpliwość: czy na pewno…",           s: "coś zostało zrobione źle",      tag: "wątpliwość" },
+  { v: "ocena",      label: "że ze mną jest coś nie tak",          s: "ze mną jest coś nie tak",       tag: "ocena siebie" },
+  { v: "obraz",      label: "obraz albo scena, która wraca",       s: "znowu ten obraz",               tag: "obraz" },
+  { v: "inna",       label: "inna, nie chcę jej nazywać",          s: "ta myśl",                       tag: "ta myśl" },
 ];
 
 const CONTROL_OPTIONS = [
@@ -220,6 +236,47 @@ const EXERCISES = {
       { id: "people", type: "textarea", label: "Czyja zaleta", prompt: "Kto z Twojego otoczenia ma cechę, którą cenisz? Jaką?" },
       { id: "act", type: "text", label: "Życzliwy gest", prompt: "Jedna mała, życzliwa rzecz dla siebie albo kogoś w ciągu najbliższej godziny:" },
       { id: "after", type: "scale", label: "Ciężar po", prompt: "Jak ciężko jest teraz?" },
+    ],
+  },
+
+  natret: {
+    title: "Natrętna myśl", mins: 3,
+    desc: "Gdy wraca myśl, która nie chce odejść. Bez kłótni z nią.",
+    steps: [
+      { id: "before", type: "scale", label: "Natarczywość przed", prompt: "Jak bardzo ta myśl się teraz narzuca?" },
+      { type: "info", prompt: "Natrętne myśli ma prawie każdy. W badaniu w 13 krajach ponad 9 na 10 osób miało je w ostatnich miesiącach.\n\nMyśl to nie zamiar, nie przepowiednia i nie prawda o Tobie. Dziś nie będziemy się z nią kłócić, bo kłótnia ją karmi." },
+      { id: "theme", type: "choice", label: "Rodzaj myśli", prompt: "O czym jest ta myśl?", hint: "Nie musisz jej zapisywać ani powtarzać. Wystarczy rodzaj.",
+        options: INTRUSION_THEMES },
+      { type: "info", prompt: "Epiktet do każdego przykrego wyobrażenia mówił: „jesteś tylko wrażeniem, a wcale nie tym, czym się wydajesz”.\n\nWrażenie przychodzi samo. Zgoda na nie należy do Ciebie." },
+      { id: "defuse", type: "defuse", label: "Dystans", prompt: "Odsuń ją od siebie, krok po kroku.", hint: "Stuknij „odsuń”, aż zdanie zrobi się małe." },
+      { id: "returns", type: "stream", label: "Powroty", prompt: "Połóż ją na fali.",
+        hint: "Za każdym razem, gdy wróci, stuknij falę i patrz, jak odpływa. Powroty są normalne, nie musisz jej zatrzymywać." },
+      { id: "urge", type: "choice", label: "Odruch", prompt: "Co Cię ciągnie, żeby się jej pozbyć?",
+        options: [
+          { v: "sprawdzic", label: "sprawdzić, upewnić się" },
+          { v: "pytac", label: "zapytać kogoś, czy wszystko w porządku" },
+          { v: "analizowac", label: "przemyśleć to jeszcze raz, do końca" },
+          { v: "odpychac", label: "odepchnąć ją, zająć głowę" },
+          { v: "nic", label: "nic, po prostu jest" },
+        ] },
+      { type: "info", prompt: (a) => ({
+          sprawdzic: "Sprawdzanie daje ulgę na chwilę, a potem myśl wraca silniejsza. Każde sprawdzenie uczy mózg, że była groźna.",
+          pytac: "Pytanie innych o zapewnienie działa jak sprawdzanie: krótka ulga, dłuższa pętla.",
+          analizowac: "Rozbieranie myśli na części to też kłótnia z nią. Tej myśli nie da się wygrać argumentami, bo to nie problem do rozwiązania.",
+          odpychac: "Im mocniej odpychasz myśl, tym częściej wraca. Pomaga, paradoksalnie, pozwolić jej być.",
+          nic: "Dobrze. Pozwól jej być w tle, jak radiu grającemu w innym pokoju.",
+        }[a.urge] || "") + "\n\nSpróbuj przez 15 minut nie robić niczego, żeby ją uciszyć. Myśl może zostać. Nie musi zniknąć, żeby dało się żyć dalej." },
+      { id: "next", type: "choice", label: "Co dalej", prompt: "Co teraz?",
+        options: [
+          { v: "wracam", label: "wracam do tego, co było przed chwilą" },
+          { v: "cialo", label: "coś dla ciała: spacer, woda, rozciąganie" },
+          { v: "odkladam", label: "odkładam ją na wieczór" },
+        ] },
+      { type: "info", showIf: (a) => a.next === "odkladam",
+        prompt: "Wieczorem, przy przeglądzie, możesz do niej wrócić na 10 minut. Często okaże się, że nie ma już po co." },
+      { id: "after", type: "scale", label: "Natarczywość po", prompt: "Jak bardzo narzuca się teraz?",
+        hint: "Celem nie jest zero. Celem jest to, że myśl może być, a Ty i tak robisz swoje." },
+      { type: "info", prompt: "Jeśli takie myśli zajmują Ci dużo czasu każdego dnia, warto porozmawiać ze specjalistą. Najlepiej przebadana metoda to terapia poznawczo-behawioralna z ekspozycją (ERP)." },
     ],
   },
 
@@ -349,12 +406,12 @@ const JOURNEY = [
 // zdania: wstawia się do pola i czeka na dokończenie. Reszta dopisuje się jako gotowa odpowiedź.
 // Do tego aplikacja dokłada 3 ostatnie własne odpowiedzi z tego samego pola.
 const CHIPS = {
-  "poranek.forecast": ["trudna rozmowa", "za dużo zadań", "zmęczenie", "spóźnienie", "konkretny człowiek", "niepewna sprawa"],
-  "poranek.response": ["pauza, zanim odpowiem", "zrobię swoje, wynik nie jest mój", "zapytam, zamiast zakładać", "jedna rzecz naraz", "odpuszczę, co nie moje"],
-  "poranek.intention": ["cierpliwość", "odwaga", "spokój", "uważność", "życzliwość", "wytrwałość"],
-  "wieczor.bad": ["nerwy", "odkładanie", "za dużo telefonu", "zmęczenie", "nic szczególnego"],
-  "wieczor.good": ["trudna rzecz zrobiona", "cierpliwość", "ruch", "dobra rozmowa", "odpoczynek"],
-  "wieczor.missed": ["snu", "ruchu", "przerwy", "rozmowy", "skupienia", "niczego, było dobrze"],
+  "poranek.forecast": ["trudna rozmowa", "za dużo zadań", "zmęczenie", "spóźnienie", "konkretny człowiek", "niepewna sprawa", "spotkanie", "termin", "krytyka", "czekanie na odpowiedź", "korki", "hałas", "mało snu", "zła wiadomość", "niechęć do pracy", "decyzja do podjęcia", "telefon, którego nie chcę", "pieniądze", "zdrowie", "czyjś zły humor", "coś nie zadziała", "presja czasu", "tłum ludzi", "wieczór sam ze sobą", "trudny mail", "ocena mojej pracy"],
+  "poranek.response": ["pauza, zanim odpowiem", "zrobię swoje, wynik nie jest mój", "zapytam, zamiast zakładać", "jedna rzecz naraz", "odpuszczę, co nie moje", "trzy oddechy", "odpowiem jutro", "nazwę to, co czuję", "krótki spacer", "powiem wprost, czego potrzebuję", "przypomnę sobie, że to minie", "2 minuty i zobaczę", "poproszę o pomoc", "wyciszę telefon", "zapiszę to na później", "spojrzę z góry", "potraktuję to jak ćwiczenie", "łagodność wobec siebie", "wysłucham do końca", "nie muszę mieć racji"],
+  "poranek.intention": ["cierpliwość", "odwaga", "spokój", "uważność", "życzliwość", "wytrwałość", "prostota", "wdzięczność", "umiar", "szczerość", "ciekawość", "pokora", "skupienie", "łagodność", "sprawiedliwość", "odpuszczanie", "dyscyplina", "pogoda ducha", "obecność", "hojność"],
+  "wieczor.bad": ["nerwy", "odkładanie", "za dużo telefonu", "zmęczenie", "nic szczególnego", "ostre słowa", "zamartwianie się", "za dużo naraz", "brak przerwy", "nieuważność", "podjadanie", "za późno spać", "unikanie rozmowy", "perfekcjonizm", "narzekanie", "porównywanie się", "pośpiech", "niesłuchanie", "rozproszenie", "zakupy pod wpływem chwili"],
+  "wieczor.good": ["trudna rzecz zrobiona", "cierpliwość", "ruch", "dobra rozmowa", "odpoczynek", "dotrzymane słowo", "pomoc komuś", "spokojna reakcja", "skupiona praca", "czas z bliskimi", "dobre jedzenie", "świeże powietrze", "coś nowego", "odmowa, gdy trzeba", "lektura", "porządek", "pauza przed reakcją", "śmiech", "chwila ciszy", "zrobione minimum"],
+  "wieczor.missed": ["snu", "ruchu", "przerwy", "rozmowy", "skupienia", "niczego, było dobrze", "cierpliwości", "czasu dla siebie", "wody", "odwagi", "granic", "światła dziennego", "natury", "planu", "odpoczynku od ekranu", "czułości", "odpuszczenia", "wdzięczności"],
 
   "kontrola.worries": ["praca", "zdrowie", "pieniądze", "relacje", "czyjaś opinia", "przyszłość"],
   "kontrola.action": ["10 minut przygotowania", "jedna wiadomość", "zapytam, zamiast zgadywać", "zapiszę plan na kartce", "dziś nic, jutro rano"],

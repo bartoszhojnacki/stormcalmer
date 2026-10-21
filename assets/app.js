@@ -21,7 +21,7 @@ function hash(str) {
 }
 
 function emptyState() {
-  return { version: 1, days: {}, entries: [], habits: DEFAULT_HABITS.map((h) => ({ ...h })), profile: {}, checks: [] };
+  return { version: 1, days: {}, entries: [], habits: DEFAULT_HABITS.map((h) => ({ ...h })), profile: {}, checks: [], notes: [] };
 }
 
 function loadState() {
@@ -35,6 +35,44 @@ function loadState() {
 }
 
 const resolve = (v, ...args) => (typeof v === "function" ? v(...args) : v);
+
+// Zdjęcia stron z Księgi trzymamy w IndexedDB: localStorage ma ok. 5 MB.
+const idb = {
+  open() {
+    return (this._db ||= new Promise((ok, fail) => {
+      const req = indexedDB.open("stormcalmer", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("images");
+      req.onsuccess = () => ok(req.result);
+      req.onerror = () => fail(req.error);
+    }));
+  },
+  async run(mode, fn) {
+    const db = await this.open();
+    return new Promise((ok, fail) => {
+      const tx = db.transaction("images", mode);
+      const req = fn(tx.objectStore("images"));
+      tx.oncomplete = () => ok(req?.result);
+      tx.onerror = () => fail(tx.error);
+    });
+  },
+  get: (id) => idb.run("readonly", (st) => st.get(id)),
+  put: (id, blob) => idb.run("readwrite", (st) => st.put(blob, id)),
+  del: (id) => idb.run("readwrite", (st) => st.delete(id)),
+};
+
+// Zmniejsza zdjęcie strony do rozsądnego rozmiaru (czytelne, ale lekkie)
+async function shrinkImage(file, max = 1600) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * k);
+  c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.82));
+}
+
+const blobToDataUrl = (b) => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); });
+const dataUrlToBlob = (u) => fetch(u).then((r) => r.blob());
 
 document.addEventListener("alpine:init", () => {
   Alpine.data("storm", () => ({
@@ -52,8 +90,13 @@ document.addEventListener("alpine:init", () => {
     showInstall: false,
     preview: null, // pogoda pokazywana na powitaniu (niebo przechodzi przez wszystkie)
     writeOpen: false, // pole tekstowe rozwinięte (domyślnie tylko wybór)
+    chipSeed: 0,      // „↻ inne” losuje kolejny zestaw podpowiedzi
+    leaves: [],       // myśli odpływające na fali (krok „stream”)
+    noteForm: null,   // edytowany fragment Księgi
+    imgUrls: {},      // id fragmentu → adres obrazka z IndexedDB
+    zoomNote: null,
 
-    WEATHERS, EXERCISES, RITUALS, HABIT_SUGGESTIONS, BASELINE_ITEMS,
+    WEATHERS, EXERCISES, RITUALS, HABIT_SUGGESTIONS, BASELINE_ITEMS, INTRUSION_THEMES,
 
     init() {
       if (navigator.storage?.persist) navigator.storage.persist();
@@ -132,7 +175,18 @@ document.addEventListener("alpine:init", () => {
       return list[hash(key + (weatherId || "")) % list.length];
     },
     todayQuote() {
-      return this.quoteFor(this.today, this.peekDay(this.today)?.weather);
+      const w = this.peekDay(this.today)?.weather;
+      const own = (this.s.notes || []).filter((n) => n.text);
+      if (own.length && hash(this.today + "księga") % 3 === 0) {
+        const match = own.filter((n) => !w || !n.weathers?.length || n.weathers.includes(w));
+        const list = match.length ? match : own;
+        const n = list[hash(this.today + w) % list.length];
+        return { t: n.text, a: n.source || "Twoja księga", s: "", own: true };
+      }
+      return this.quoteFor(this.today, w);
+    },
+    quoteCaption(q) {
+      return [q.a, q.s].filter(Boolean).join(" · ");
     },
 
     // ---------- silnik kroków ----------
@@ -169,6 +223,9 @@ document.addEventListener("alpine:init", () => {
       }
       if (st.type === "scale" && this.run.answers[st.id] == null) this.run.answers[st.id] = 5;
       if (st.type === "timer") this.startTimer(st.seconds);
+      if (st.type === "defuse" && this.run.answers[st.id] == null) this.run.answers[st.id] = 0;
+      if (st.type === "stream" && this.run.answers[st.id] == null) this.run.answers[st.id] = 0;
+      this.chipSeed = 0;
       window.scrollTo(0, 0);
     },
     visibleSteps() {
@@ -206,6 +263,7 @@ document.addEventListener("alpine:init", () => {
       }
       if (st.type === "timer") return !this.timer;
       if (st.type === "storms") return v.length > 0;
+      if (st.type === "defuse") return v >= 1;
       return true; // pola tekstowe są opcjonalne: lepiej coś niż nic
     },
     next() {
@@ -270,8 +328,16 @@ document.addEventListener("alpine:init", () => {
     },
     chipsFor() {
       if (!this.run || !this.isTextStep()) return [];
-      const base = resolve(CHIPS[`${this.run.key}.${this.st.id}`], this.run.answers) || [];
-      const recent = this.recentFor(this.run.key, this.st.id).filter((r) => !base.includes(r));
+      let base = resolve(CHIPS[`${this.run.key}.${this.st.id}`], this.run.answers) || [];
+      const pooled = base.length > 7;
+      if (pooled) {
+        // duża pula: codziennie inne 6, a wybrane zostają widoczne
+        const seed = `${this.today}.${this.run.key}.${this.st.id}.${this.chipSeed}`;
+        const picked = this.splitAnswer(this.ans[this.st.id]);
+        const shuffled = [...base].sort((a, b) => hash(seed + a) - hash(seed + b));
+        base = [...new Set([...picked.filter((p) => base.includes(p)), ...shuffled])].slice(0, Math.max(6, picked.length));
+      }
+      const recent = this.recentFor(this.run.key, this.st.id).filter((r) => !base.includes(r)).slice(0, pooled ? 2 : 3);
       return [...recent.map((t) => ({ t, mine: true })), ...base.map((t) => ({ t, mine: false }))];
     },
     // Łączenie kilku wybranych opcji: w liście nowa linia, gdzie indziej „ · ”
@@ -282,6 +348,9 @@ document.addEventListener("alpine:init", () => {
     splitAnswer(v) {
       if (typeof v !== "string") return [];
       return v.split(this.st.type === "lines" ? "\n" : " · ").map((x) => x.trim()).filter(Boolean);
+    },
+    hasPool() {
+      return (resolve(CHIPS[`${this.run?.key}.${this.st.id}`], this.ans) || []).length > 7;
     },
     longChips() {
       return this.chipsFor().some((c) => c.t.length > 36);
@@ -319,6 +388,83 @@ document.addEventListener("alpine:init", () => {
       this.writeOpen = true;
       // przycisk znika razem z szablonem, więc pole szukamy w całym kroku
       this.$nextTick(() => document.querySelector(".run .step .field")?.focus());
+    },
+
+    // ---------- natrętna myśl ----------
+    intrusion() {
+      return INTRUSION_THEMES.find((t) => t.v === this.ans.theme) || INTRUSION_THEMES.at(-1);
+    },
+    defuseLines() {
+      const t = this.intrusion();
+      return [
+        `${t.s.charAt(0).toUpperCase() + t.s.slice(1)}.`,
+        `Mam myśl: „${t.s}”.`,
+        `Zauważam, że mam myśl: „${t.s}”.`,
+        `Mój umysł znów opowiada historię pod tytułem „${t.tag}”. Dziękuję, umyśle.`,
+      ];
+    },
+    defuseMore() {
+      if (this.ans.defuse < 3) this.run.answers.defuse++;
+    },
+    launchLeaf() {
+      this.run.answers.returns++;
+      const leaf = { id: Date.now() + Math.random(), text: this.intrusion().s, top: 10 + Math.random() * 50 };
+      this.leaves.push(leaf);
+      setTimeout(() => (this.leaves = this.leaves.filter((l) => l.id !== leaf.id)), 9000);
+    },
+
+    // ---------- Księga ----------
+    notes() {
+      return [...(this.s.notes || [])].sort((a, b) => b.ts.localeCompare(a.ts));
+    },
+    noteImg(n) {
+      if (!n.img) return null;
+      if (!(n.id in this.imgUrls)) {
+        this.imgUrls[n.id] = null;
+        idb.get(n.id).then((b) => b && (this.imgUrls[n.id] = URL.createObjectURL(b)));
+      }
+      return this.imgUrls[n.id];
+    },
+    recentSources() {
+      return [...new Set(this.notes().map((n) => n.source).filter(Boolean))].slice(0, 4);
+    },
+    newNote() {
+      this.noteForm = { id: null, text: "", source: this.recentSources()[0] || "", weathers: [], blob: null, preview: null };
+    },
+    editNote(n) {
+      this.noteForm = { ...n, weathers: [...(n.weathers || [])], blob: null, preview: this.noteImg(n) };
+    },
+    async pickPhoto(ev) {
+      const f = ev.target.files[0];
+      ev.target.value = "";
+      if (!f) return;
+      const blob = await shrinkImage(f);
+      this.noteForm.blob = blob;
+      this.noteForm.preview = URL.createObjectURL(blob);
+    },
+    toggleNoteWeather(id) {
+      const w = this.noteForm.weathers;
+      w.includes(id) ? w.splice(w.indexOf(id), 1) : w.push(id);
+    },
+    async saveNote() {
+      const f = this.noteForm;
+      if (!f.text.trim() && !f.blob && !f.img) return;
+      const id = f.id || "n-" + Date.now().toString(36);
+      if (f.blob) {
+        await idb.put(id, f.blob);
+        this.imgUrls[id] = f.preview;
+      }
+      const note = { id, ts: f.ts || new Date().toISOString(), text: f.text.trim(), source: f.source.trim(), weathers: f.weathers, img: !!(f.blob || f.img) };
+      this.s.notes = [...(this.s.notes || []).filter((n) => n.id !== id), note];
+      this.noteForm = null;
+      this.save();
+    },
+    async deleteNote() {
+      const id = this.noteForm.id;
+      await idb.del(id).catch(() => {});
+      this.s.notes = this.s.notes.filter((n) => n.id !== id);
+      this.noteForm = null;
+      this.save();
     },
 
     // ---------- kroki onboardingu ----------
@@ -481,6 +627,8 @@ document.addEventListener("alpine:init", () => {
       if (st.type === "multi") return v.map((id) => st.options.find((o) => o.id === id)?.label).join(", ");
       if (st.type === "choice") return st.options.find((o) => o.v === v)?.label;
       if (st.type === "scale") return `${v}/10`;
+      if (st.type === "defuse") return ["", "zdanie", "„mam myśl”", "„zauważam”", "historia"][v + 1] || "";
+      if (st.type === "stream") return v ? `odpłynęła ${v}×` : "";
       if (st.type === "baseline") return BASELINE_ITEMS.map((b) => `${b.label} ${v[b.id]}/10`).join("\n");
       return String(v);
     },
@@ -611,7 +759,13 @@ document.addEventListener("alpine:init", () => {
 
     // ---------- kopia ----------
     async exportData() {
-      const json = JSON.stringify(this.s, null, 2);
+      const images = {};
+      for (const n of this.s.notes || []) {
+        if (!n.img) continue;
+        const b = await idb.get(n.id).catch(() => null);
+        if (b) images[n.id] = await blobToDataUrl(b);
+      }
+      const json = JSON.stringify({ ...this.s, images }, null, 2);
       const name = `stormcalmer-${this.today}.json`;
       const file = new File([json], name, { type: "application/json" });
       if (navigator.canShare?.({ files: [file] })) {
@@ -642,8 +796,11 @@ document.addEventListener("alpine:init", () => {
         this.importMsg = "To nie wygląda na kopię Stormcalmera.";
       }
     },
-    confirmImport() {
-      this.s = { ...emptyState(), ...this.pendingImport };
+    async confirmImport() {
+      const { images = {}, ...data } = this.pendingImport;
+      for (const [id, url] of Object.entries(images)) await idb.put(id, await dataUrlToBlob(url));
+      this.imgUrls = {};
+      this.s = { ...emptyState(), ...data };
       this.save();
       this.pendingImport = null;
       this.importMsg = "Wczytano. ✓";

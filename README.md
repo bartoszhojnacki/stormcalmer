@@ -7,7 +7,7 @@ Statyczna appka (HTML + Alpine.js) łącząca stoicyzm i CBT: poranna „pogoda 
 - **Front:** vanilla HTML/CSS + [Alpine.js](https://alpinejs.dev) (lokalna kopia w `assets/`), bez kroku budowania.
 - **Design:** „Niebo i morze”: niebo zmienia barwę z pogodą dnia, fale rosną przy burzy. Fonty Cormorant Garamond + Jost (OFL) hostowane lokalnie w `assets/fonts/`.
 - **Offline:** `sw.js` (najpierw sieć, cache gdy offline) + `manifest.webmanifest`. Instalacja jako aplikacja na ekranie głównym.
-- **Dane:** `localStorage` (`storm.v1`), tylko na tym urządzeniu. Kopia: eksport/import JSON w zakładce „Więcej”.
+- **Dane:** `localStorage` (`storm.v1`), zdjęcia z Księgi w IndexedDB, tylko na tym urządzeniu. Kopia (razem ze zdjęciami): eksport/import JSON w zakładce „Więcej”.
 
 ## Deploy (GitHub Pages)
 
